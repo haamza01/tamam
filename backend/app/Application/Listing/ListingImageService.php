@@ -114,6 +114,12 @@ class ListingImageService
         DB::transaction(function () use ($listing, $imageIds): void {
             Listing::query()->lockForUpdate()->findOrFail($listing->id);
 
+            ListingImage::query()
+                ->where('listing_id', $listing->id)
+                ->orderBy('sort_order')
+                ->lockForUpdate()
+                ->get();
+
             $temporaryOffset = 1000;
 
             foreach (array_values($imageIds) as $position => $imageId) {

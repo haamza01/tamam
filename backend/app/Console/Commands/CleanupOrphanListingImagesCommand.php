@@ -8,6 +8,7 @@ use App\Models\ListingImage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CleanupOrphanListingImagesCommand extends Command
 {
@@ -15,12 +16,20 @@ class CleanupOrphanListingImagesCommand extends Command
 
     protected $description = 'Remove stale listing image source objects without database rows';
 
+    private const SOURCE_MIN_AGE_HOURS = 24;
+
+    private const STALE_ROW_AGE_HOURS = 24;
+
+    private const STALE_PROCESSING_MINUTES = 10;
+
     public function handle(ListingImageStorageService $storage): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $sourceDisk = (string) config('media.listing.source_disk', 'local');
         $prefix = trim((string) config('media.listing.path_prefix'), '/');
-        $threshold = Carbon::now()->subHours(24);
+        $sourceThreshold = Carbon::now()->subHours(self::SOURCE_MIN_AGE_HOURS);
+        $rowThreshold = Carbon::now()->subHours(self::STALE_ROW_AGE_HOURS);
+        $processingThreshold = Carbon::now()->subMinutes(self::STALE_PROCESSING_MINUTES);
         $removed = 0;
 
         $files = Storage::disk($sourceDisk)->allFiles($prefix);
@@ -30,7 +39,7 @@ class CleanupOrphanListingImagesCommand extends Command
                 continue;
             }
 
-            if (Storage::disk($sourceDisk)->lastModified($file) > $threshold->getTimestamp()) {
+            if (Storage::disk($sourceDisk)->lastModified($file) > $sourceThreshold->getTimestamp()) {
                 continue;
             }
 
@@ -41,9 +50,14 @@ class CleanupOrphanListingImagesCommand extends Command
             }
 
             $imageId = $parts[count($parts) - 2];
-            $exists = ListingImage::query()->whereKey($imageId)->exists();
 
-            if ($exists) {
+            if (! Str::isUuid($imageId)) {
+                continue;
+            }
+
+            $image = ListingImage::query()->whereKey($imageId)->first();
+
+            if ($image !== null) {
                 continue;
             }
 
@@ -56,13 +70,22 @@ class CleanupOrphanListingImagesCommand extends Command
             $removed++;
         }
 
-        $this->info(($dryRun ? 'Found' : 'Removed')." {$removed} orphan listing image object(s).");
+        $this->info(($dryRun ? 'Found' : 'Removed')." {$removed} orphan listing image source object(s).");
+
+        $staleRows = 0;
 
         ListingImage::query()
-            ->whereIn('status', [ListingImageStatus::Pending, ListingImageStatus::Failed])
-            ->where('updated_at', '<', $threshold)
+            ->where(function ($query) use ($rowThreshold, $processingThreshold): void {
+                $query->where(function ($query) use ($rowThreshold): void {
+                    $query->whereIn('status', [ListingImageStatus::Pending, ListingImageStatus::Failed])
+                        ->where('updated_at', '<', $rowThreshold);
+                })->orWhere(function ($query) use ($processingThreshold): void {
+                    $query->where('status', ListingImageStatus::Processing)
+                        ->where('updated_at', '<', $processingThreshold);
+                });
+            })
             ->whereNull('processed_object_key')
-            ->chunkById(100, function ($images) use ($dryRun, $storage, &$removed): void {
+            ->chunkById(100, function ($images) use ($dryRun, $storage, &$staleRows): void {
                 foreach ($images as $image) {
                     if ($dryRun) {
                         $this->line("Would delete stale listing image row: {$image->id}");
@@ -75,9 +98,11 @@ class CleanupOrphanListingImagesCommand extends Command
                         $image->delete();
                     }
 
-                    $removed++;
+                    $staleRows++;
                 }
             });
+
+        $this->info(($dryRun ? 'Found' : 'Removed')." {$staleRows} stale listing image row(s).");
 
         return self::SUCCESS;
     }

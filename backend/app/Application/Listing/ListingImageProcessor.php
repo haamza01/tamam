@@ -27,6 +27,8 @@ class ListingImageProcessor
     public function process(string $binary): array
     {
         $image = $this->manager->read($binary)->orient();
+        $this->assertSafeDimensions($image->width(), $image->height());
+
         $maxWidth = (int) config('media.listing.max_width');
         $thumbWidth = (int) config('media.listing.thumbnail_width');
         $quality = (int) config('media.listing.webp_quality');
@@ -49,5 +51,19 @@ class ListingImageProcessor
             'thumbnail_width' => $thumbnail->width(),
             'thumbnail_height' => $thumbnail->height(),
         ];
+    }
+
+    private function assertSafeDimensions(int $width, int $height): void
+    {
+        $maxDimension = (int) config('media.listing.max_dimension');
+        $maxPixels = (int) config('media.listing.max_pixels');
+
+        if ($width <= 0 || $height <= 0 || $width > $maxDimension || $height > $maxDimension) {
+            throw new \RuntimeException('Decoded listing image exceeds allowed dimensions.');
+        }
+
+        if (($width * $height) > $maxPixels) {
+            throw new \RuntimeException('Decoded listing image exceeds allowed pixel count.');
+        }
     }
 }

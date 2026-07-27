@@ -187,7 +187,39 @@ See `backend/.env.example`: `LISTING_IMAGE_DISK`, `LISTING_IMAGE_SOURCE_DISK`, `
 - PHP GD extension with JPEG, PNG, WebP support (`docker/backend/Dockerfile`)
 - Queue worker must consume `media` queue in production
 
-## Deferred / out of scope
+## Memory safety (decode limits)
+
+Re-validated after decode and EXIF orientation in `ListingImageProcessor`:
+
+| Limit | Value | Enforced |
+|-------|-------|----------|
+| Max file upload | 10 MB | Upload validator |
+| Max width/height | 8000 px | Upload validator + processor |
+| Max pixel count | 40,000,000 | Upload validator + processor |
+| Output max width | 1920 px | Processor scale-down |
+| Thumbnail max width | 400 px | Processor scale-down |
+
+Decode failures or limit violations mark the image `failed` with `listing.image_processing_failed`. Source is retained for retry until successful processing or row cleanup.
+
+## Delete-during-processing guarantees
+
+Processing uses **short DB transactions** and row-existence checks:
+
+1. Claim `processing` in a transaction, then release the lock before decode/storage I/O.
+2. Verify the row still exists before each storage write.
+3. Final transaction commits `ready` only if the row is still `processing`; otherwise delete partial variants.
+4. Owner delete removes the DB row immediately; a worker cannot recreate the row or leave orphaned public variants.
+
+## Unique job lock
+
+- `ShouldBeUniqueUntilProcessing` — lock released when processing begins (retries not blocked after crash).
+- `uniqueFor = 130` seconds (job timeout 120s + buffer) — stale locks expire if a worker dies before release.
+
+## Partial processing failure
+
+- Display write succeeds, thumbnail fails → display variant deleted, source retained, status `failed`, queue retry safe.
+- Final commit sees deleted/changed row → both variants deleted, no DB update.
+
 
 - Presigned/direct-to-S3 client uploads
 - Frontend image uploader
