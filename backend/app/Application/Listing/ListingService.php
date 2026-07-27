@@ -103,6 +103,16 @@ class ListingService
 
         return DB::transaction(function () use ($user, $listing, $data): Listing {
             $locked = Listing::query()->lockForUpdate()->findOrFail($listing->id);
+
+            if (array_key_exists('version', $data) && (int) $data['version'] !== $locked->version) {
+                throw new ListingException(
+                    errorCode: 'listing.version_conflict',
+                    message: 'The listing was modified by another request.',
+                    status: Response::HTTP_CONFLICT,
+                    errors: ['version' => ['listing.version_conflict']],
+                );
+            }
+
             $previousCategoryId = $locked->category_id;
             $previousStatus = $locked->status;
             $changes = [];
@@ -166,9 +176,11 @@ class ListingService
                 $locked->status = ListingStatus::PendingReview;
                 $locked->published_at = null;
                 $locked->expires_at = null;
-            } elseif ($previousCategoryId !== $locked->category_id && $previousStatus->countsTowardCategoryListingCount()) {
+            } elseif ($previousCategoryId !== $locked->category_id && $locked->countsForCategoryTotal()) {
                 $this->listingCounts->decrement($previousCategoryId);
-                $this->listingCounts->increment($locked->category_id);
+                if ($locked->countsForCategoryTotal()) {
+                    $this->listingCounts->increment($locked->category_id);
+                }
             }
 
             $locked->version = $locked->version + 1;
@@ -185,9 +197,8 @@ class ListingService
     public function findPublic(string $id): Listing
     {
         $listing = Listing::query()
+            ->publiclyVisible()
             ->whereKey($id)
-            ->where('status', ListingStatus::Published)
-            ->whereNull('deleted_at')
             ->with($this->detailRelations())
             ->first();
 
@@ -205,11 +216,11 @@ class ListingService
             ->with($this->detailRelations())
             ->find($id);
 
-        if ($listing === null || $listing->status === ListingStatus::Deleted) {
+        if ($listing === null || $listing->isSoftDeleted()) {
             throw $this->notFound();
         }
 
-        if ($listing->status->isPubliclyVisible()) {
+        if ($listing->isPubliclyVisibleNow()) {
             return $listing;
         }
 
@@ -226,8 +237,7 @@ class ListingService
     public function paginatePublic(array $filters): LengthAwarePaginator
     {
         $query = Listing::query()
-            ->where('status', ListingStatus::Published)
-            ->whereNull('deleted_at')
+            ->publiclyVisible()
             ->with(['category.translations', 'city.translations', 'user']);
 
         if (! empty($filters['category_id'])) {
@@ -258,6 +268,7 @@ class ListingService
     {
         $query = Listing::query()
             ->where('user_id', $user->id)
+            ->whereNull('deleted_at')
             ->where('status', '!=', ListingStatus::Deleted)
             ->with(['category.translations', 'city.translations']);
 
@@ -271,8 +282,7 @@ class ListingService
     public function latest(int $limit = 12): Collection
     {
         return Listing::query()
-            ->where('status', ListingStatus::Published)
-            ->whereNull('deleted_at')
+            ->publiclyVisible()
             ->with(['category.translations', 'city.translations', 'user'])
             ->orderByDesc('published_at')
             ->limit($limit)
@@ -282,9 +292,8 @@ class ListingService
     public function featured(int $limit = 12): Collection
     {
         return Listing::query()
-            ->where('status', ListingStatus::Published)
+            ->publiclyVisible()
             ->where('featured', true)
-            ->whereNull('deleted_at')
             ->with(['category.translations', 'city.translations', 'user'])
             ->orderByDesc('published_at')
             ->limit($limit)
@@ -294,8 +303,7 @@ class ListingService
     public function similar(Listing $listing, int $limit = 8): Collection
     {
         return Listing::query()
-            ->where('status', ListingStatus::Published)
-            ->whereNull('deleted_at')
+            ->publiclyVisible()
             ->where('category_id', $listing->category_id)
             ->where('city_id', $listing->city_id)
             ->whereKeyNot($listing->id)

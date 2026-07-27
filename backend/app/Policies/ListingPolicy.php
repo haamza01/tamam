@@ -10,7 +10,7 @@ class ListingPolicy extends BasePolicy
 {
     public function view(?User $user, Listing $listing): bool
     {
-        if ($listing->status->isPubliclyVisible() && $listing->deleted_at === null) {
+        if ($listing->isPubliclyVisibleNow()) {
             return true;
         }
 
@@ -35,9 +35,15 @@ class ListingPolicy extends BasePolicy
 
     public function delete(User $user, Listing $listing): bool
     {
-        return $listing->isOwnedBy($user)
-            && $user->isActiveAccount()
-            && $listing->status !== ListingStatus::Deleted;
+        if (! $listing->isOwnedBy($user) || ! $user->isActiveAccount()) {
+            return false;
+        }
+
+        if ($listing->isSoftDeleted()) {
+            return true;
+        }
+
+        return $listing->status->canTransitionTo(ListingStatus::Deleted);
     }
 
     public function transition(User $user, Listing $listing): bool

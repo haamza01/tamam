@@ -6,6 +6,7 @@ use App\Domain\Listing\Enums\ListingCondition;
 use App\Domain\Listing\Enums\ListingStatus;
 use App\Domain\Listing\Enums\PriceType;
 use App\Domain\Shared\Concerns\HasUuid;
+use App\Models\Concerns\HasListingVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Listing extends Model
 {
+    use HasListingVisibility;
     use HasUuid;
     use SoftDeletes;
 

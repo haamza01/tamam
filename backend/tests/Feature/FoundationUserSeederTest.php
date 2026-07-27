@@ -32,7 +32,8 @@ class FoundationUserSeederTest extends TestCase
 
             (new LogOtpProvider)->send('+97450000099', '123456');
         } finally {
-            $this->app->detectEnvironment(fn () => 'testing');
+            $this->app->detectEnvironment(fn (): string => 'testing');
+            $this->app->forgetInstance(OtpProviderInterface::class);
         }
     }
 
@@ -46,7 +47,8 @@ class FoundationUserSeederTest extends TestCase
 
             app(OtpProviderInterface::class);
         } finally {
-            $this->app->detectEnvironment(fn () => 'testing');
+            $this->app->detectEnvironment(fn (): string => 'testing');
+            $this->app->forgetInstance(OtpProviderInterface::class);
         }
     }
 }

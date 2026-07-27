@@ -46,6 +46,7 @@ class UpdateListingRequest extends FormRequest
             'expires_at' => ['prohibited'],
             'moderation_notes' => ['prohibited'],
             'rejection_reason' => ['prohibited'],
+            'version' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 }

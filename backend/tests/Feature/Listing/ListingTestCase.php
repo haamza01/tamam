@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Listing;
 
+use App\Application\Listing\ListingStateMachine;
 use App\Models\Category;
 use App\Models\City;
+use App\Models\Listing;
 use App\Models\User;
 use Database\Seeders\CategoryAttributeSeeder;
 use Database\Seeders\CategorySeeder;
@@ -23,7 +25,6 @@ abstract class ListingTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->resetApiAuthState();
 
         $this->seed([
             RolePermissionSeeder::class,
@@ -53,35 +54,18 @@ abstract class ListingTestCase extends TestCase
         return JWTAuth::fromUser($user);
     }
 
-    protected function tearDown(): void
-    {
-        $this->resetApiAuthState();
-        $this->flushHeaders();
-
-        parent::tearDown();
-    }
-
-    protected function resetApiAuthState(): void
-    {
-        auth()->forgetGuards();
-
-        if ($this->app->bound('tymon.jwt')) {
-            $this->app->make('tymon.jwt')->unsetToken();
-        }
-    }
-
     protected function withApiToken(string $token): static
     {
-        $this->resetApiAuthState();
+        $this->resetSharedTestState();
 
         return $this->withToken($token);
     }
 
     protected function asGuest(): static
     {
-        $this->resetApiAuthState();
+        $this->resetSharedTestState();
 
-        return $this->flushHeaders()->withHeaders([
+        return $this->withoutToken()->withHeaders([
             'Accept' => 'application/json',
         ]);
     }
@@ -116,5 +100,30 @@ abstract class ListingTestCase extends TestCase
                 ['slug' => 'mileage', 'value' => 55000],
             ],
         ], $overrides);
+    }
+
+    protected function publishListing(string $listingId, User $owner, User $moderator): Listing
+    {
+        $this->withApiToken($this->authenticate($owner))
+            ->postJson("/api/v1/listings/{$listingId}/submit")
+            ->assertOk();
+
+        $listing = Listing::query()->findOrFail($listingId);
+        app(ListingStateMachine::class)->approve($listing, $moderator);
+
+        return $listing->fresh();
+    }
+
+    protected function createPublishedListing(?User $owner = null, ?User $moderator = null): Listing
+    {
+        $owner ??= $this->verifiedSeller();
+        $moderator ??= User::factory()->create(['password' => Hash::make('Password123!'), 'phone_verified_at' => now()]);
+        $moderator->assignRole('moderator');
+
+        $listingId = $this->withApiToken($this->authenticate($owner))
+            ->postJson('/api/v1/listings', $this->validListingPayload())
+            ->json('data.listing.id');
+
+        return $this->publishListing($listingId, $owner, $moderator);
     }
 }

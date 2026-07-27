@@ -26,6 +26,14 @@ enum ListingStatus: string
     }
 
     /**
+     * Whether a listing in this status may appear in owner-facing listings (non-deleted).
+     */
+    public function isOwnerVisible(): bool
+    {
+        return $this !== self::Deleted;
+    }
+
+    /**
      * @return list<self>
      */
     public function allowedTransitions(): array
@@ -38,7 +46,7 @@ enum ListingStatus: string
             self::Paused => [self::Published, self::Archived, self::Deleted],
             self::Sold => [self::Archived, self::Deleted],
             self::Expired => [self::Published, self::Archived, self::Deleted],
-            self::Archived => [self::Published, self::Deleted],
+            self::Archived => [self::Draft, self::Published, self::Deleted],
             self::Blocked => [self::Deleted],
             self::Deleted => [],
         };

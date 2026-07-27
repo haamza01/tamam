@@ -22,6 +22,10 @@ class CategoryListingCountService
         $counts = DB::table('listings')
             ->where('status', 'published')
             ->whereNull('deleted_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
             ->select('category_id', DB::raw('COUNT(*) as total'))
             ->groupBy('category_id')
             ->pluck('total', 'category_id');

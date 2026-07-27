@@ -24,6 +24,10 @@ class ListingStateMachine
 
     public function submit(Listing $listing, User $actor): Listing
     {
+        if ($listing->status === ListingStatus::PendingReview) {
+            return $listing->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+        }
+
         if (! in_array($listing->status, [ListingStatus::Draft, ListingStatus::Rejected], true)) {
             throw $this->invalidTransition();
         }
@@ -45,25 +49,35 @@ class ListingStateMachine
         $this->assertModerator($actor);
 
         return DB::transaction(function () use ($listing, $actor, $reason): Listing {
-            $previous = $listing->status;
-            $this->applyCountDelta($listing, $previous, ListingStatus::Rejected);
+            $locked = Listing::query()->lockForUpdate()->findOrFail($listing->id);
 
-            $listing->forceFill([
+            if ($locked->status === ListingStatus::Rejected) {
+                return $locked->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+            }
+
+            $previous = $locked->status;
+            $this->applyCountDelta($locked, $previous, ListingStatus::Rejected);
+
+            $locked->forceFill([
                 'status' => ListingStatus::Rejected,
                 'rejection_reason' => $reason,
             ])->save();
 
-            $this->auditLog->log('listing.rejected', $listing, $actor, [
+            $this->auditLog->log('listing.rejected', $locked, $actor, [
                 'from' => $previous->value,
                 'to' => ListingStatus::Rejected->value,
             ]);
 
-            return $listing->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+            return $locked->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
         });
     }
 
     public function pause(Listing $listing, User $actor): Listing
     {
+        if ($listing->status === ListingStatus::Paused) {
+            return $listing->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+        }
+
         return $this->transition($listing, ListingStatus::Paused, $actor, 'listing.paused');
     }
 
@@ -75,24 +89,30 @@ class ListingStateMachine
     public function markSold(Listing $listing, User $actor): Listing
     {
         return DB::transaction(function () use ($listing, $actor): Listing {
-            if (! $listing->status->canTransitionTo(ListingStatus::Sold)) {
+            $locked = Listing::query()->lockForUpdate()->findOrFail($listing->id);
+
+            if ($locked->status === ListingStatus::Sold) {
+                return $locked->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+            }
+
+            if (! $locked->status->canTransitionTo(ListingStatus::Sold)) {
                 throw $this->invalidTransition();
             }
 
-            $previous = $listing->status;
-            $this->applyCountDelta($listing, $previous, ListingStatus::Sold);
+            $previous = $locked->status;
+            $this->applyCountDelta($locked, $previous, ListingStatus::Sold);
 
-            $listing->forceFill([
+            $locked->forceFill([
                 'status' => ListingStatus::Sold,
                 'sold_at' => now(),
             ])->save();
 
-            $this->auditLog->log('listing.sold', $listing, $actor, [
+            $this->auditLog->log('listing.sold', $locked, $actor, [
                 'from' => $previous->value,
                 'to' => ListingStatus::Sold->value,
             ]);
 
-            return $listing->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+            return $locked->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
         });
     }
 
@@ -118,20 +138,61 @@ class ListingStateMachine
         return $this->transition($listing, ListingStatus::Blocked, $actor, 'listing.blocked');
     }
 
+    public function expire(Listing $listing): Listing
+    {
+        return DB::transaction(function () use ($listing): Listing {
+            $locked = Listing::query()->lockForUpdate()->findOrFail($listing->id);
+
+            if ($locked->status === ListingStatus::Expired) {
+                return $locked;
+            }
+
+            if ($locked->status !== ListingStatus::Published || ! $locked->isPastExpiry()) {
+                return $locked;
+            }
+
+            $previous = $locked->status;
+            $this->applyCountDelta($locked, $previous, ListingStatus::Expired);
+
+            $locked->forceFill(['status' => ListingStatus::Expired])->save();
+
+            $this->auditLog->log('listing.expired', $locked, null, [
+                'from' => $previous->value,
+                'to' => ListingStatus::Expired->value,
+            ]);
+
+            $this->catalogCache->flushCategories();
+
+            return $locked;
+        });
+    }
+
     public function softDelete(Listing $listing, User $actor): Listing
     {
         return DB::transaction(function () use ($listing, $actor): Listing {
-            $previous = $listing->status;
-            $this->applyCountDelta($listing, $previous, ListingStatus::Deleted);
+            $locked = Listing::query()->withTrashed()->lockForUpdate()->findOrFail($listing->id);
 
-            $listing->forceFill(['status' => ListingStatus::Deleted])->save();
-            $listing->delete();
+            if ($locked->isSoftDeleted()) {
+                return $locked->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+            }
 
-            $this->auditLog->log('listing.deleted', $listing, $actor, [
+            if (! $locked->status->canTransitionTo(ListingStatus::Deleted)) {
+                throw $this->invalidTransition();
+            }
+
+            $previous = $locked->status;
+            $this->applyCountDelta($locked, $previous, ListingStatus::Deleted);
+
+            $locked->forceFill([
+                'status' => ListingStatus::Deleted,
+                'deleted_at' => now(),
+            ])->save();
+
+            $this->auditLog->log('listing.deleted', $locked, $actor, [
                 'from' => $previous->value,
             ]);
 
-            return $listing->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+            return $locked->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
         });
     }
 
@@ -139,10 +200,6 @@ class ListingStateMachine
     {
         if ($actor->trusted_seller && $this->settings->getBool('auto_publish_for_trusted_users')) {
             return ListingStatus::Published;
-        }
-
-        if ($this->settings->getBool('require_manual_moderation_for_new_users')) {
-            return ListingStatus::PendingReview;
         }
 
         return ListingStatus::PendingReview;
@@ -158,6 +215,10 @@ class ListingStateMachine
         return DB::transaction(function () use ($listing, $target, $actor, $auditAction, $metadata): Listing {
             $locked = Listing::query()->lockForUpdate()->findOrFail($listing->id);
             $previous = $locked->status;
+
+            if ($previous === $target) {
+                return $locked->fresh(['category', 'city', 'district', 'attributeValues.categoryAttribute', 'statistics', 'user']);
+            }
 
             if (! $previous->canTransitionTo($target)) {
                 throw $this->invalidTransition();
@@ -183,22 +244,30 @@ class ListingStateMachine
 
     private function applyTimestamps(Listing $listing, ListingStatus $from, ListingStatus $to): void
     {
-        if ($to === ListingStatus::Published && ! $from->countsTowardCategoryListingCount()) {
-            $days = $this->settings->getInt('default_listing_duration_days', 30);
-            $listing->published_at = now();
-            $listing->expires_at = now()->addDays($days);
-            $listing->rejection_reason = null;
-        }
-
         if ($to === ListingStatus::Sold) {
             $listing->sold_at = now();
+
+            return;
         }
+
+        if ($to !== ListingStatus::Published) {
+            return;
+        }
+
+        if ($from === ListingStatus::Paused) {
+            return;
+        }
+
+        $days = $this->settings->getInt('default_listing_duration_days', 30);
+        $listing->published_at = now();
+        $listing->expires_at = now()->addDays($days);
+        $listing->rejection_reason = null;
     }
 
     private function applyCountDelta(Listing $listing, ListingStatus $from, ListingStatus $to): void
     {
-        $wasCounted = $from->countsTowardCategoryListingCount();
-        $willCount = $to->countsTowardCategoryListingCount();
+        $wasCounted = $from === ListingStatus::Published;
+        $willCount = $to === ListingStatus::Published && $from !== ListingStatus::Published;
 
         if ($wasCounted && ! $willCount) {
             $this->listingCounts->decrement($listing->category_id);

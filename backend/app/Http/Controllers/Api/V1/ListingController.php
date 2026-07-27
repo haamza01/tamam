@@ -143,7 +143,7 @@ class ListingController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $listing = Listing::query()->findOrFail($id);
+        $listing = Listing::query()->withTrashed()->findOrFail($id);
         $this->authorize('delete', $listing);
 
         $this->stateMachine->softDelete($listing, $request->user());
