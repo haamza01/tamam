@@ -139,6 +139,7 @@ docs/
 | [API_SPEC.md](docs/API_SPEC.md) | REST API contract |
 | [UI_GUIDELINES.md](docs/UI_GUIDELINES.md) | UI/UX standards |
 | [CURSOR_RULES.md](docs/CURSOR_RULES.md) | Engineering rules for development |
+| [PHASE_1_TECHNICAL_DESIGN.md](docs/PHASE_1_TECHNICAL_DESIGN.md) | Phase 1 implementation blueprint (Phase 0.5) |
 
 ### Architecture Decision Records
 
@@ -163,6 +164,7 @@ Development is split into reviewable milestones. **Each phase requires approval 
 | **0B** | Repository scaffolding (Docker, backend, frontend, admin, shared) | Complete |
 | **0C** | CI/CD, workspace, scripts, configuration | Complete |
 | **0D** | Health endpoint, API error envelope, i18n shell, placeholder pages | Complete |
+| **0.5** | Phase 1 technical design (implementation blueprint) | Approved |
 | **1+** | Business features (auth, listings, etc.) | Not started |
 
 ### Approved product decisions
