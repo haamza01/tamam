@@ -52,6 +52,21 @@ class Category extends Model
         return $this->hasMany(Category::class, 'parent_id')->orderBy('sort_order');
     }
 
+    public function isLeaf(): bool
+    {
+        if ($this->relationLoaded('children')) {
+            return $this->children->isEmpty();
+        }
+
+        return ! $this->children()->exists();
+    }
+
+    /** @return HasMany<CategoryAttribute, $this> */
+    public function attributes(): HasMany
+    {
+        return $this->hasMany(CategoryAttribute::class)->orderBy('sort_order');
+    }
+
     /** @return HasMany<CategoryTranslation, $this> */
     public function translations(): HasMany
     {

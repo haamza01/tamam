@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Application\Category\CategoryService;
 use App\Application\Shared\LocaleResolver;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CategoryAttributeResource;
 use App\Http\Resources\CategoryResource;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -57,6 +58,21 @@ class CategoryController extends Controller
                 'category' => (new CategoryResource($category))->withLocale($locale),
             ],
             message: 'Category retrieved successfully.',
+        );
+    }
+
+    public function attributes(Request $request, string $slug): JsonResponse
+    {
+        $locale = $this->localeResolver->resolve($request);
+        $attributes = $this->categoryService->attributesForActiveCategory($slug, $locale);
+
+        return ApiResponse::success(
+            data: [
+                'attributes' => $attributes
+                    ->map(fn ($attribute) => (new CategoryAttributeResource($attribute))->withLocale($locale))
+                    ->values(),
+            ],
+            message: 'Category attributes retrieved successfully.',
         );
     }
 }

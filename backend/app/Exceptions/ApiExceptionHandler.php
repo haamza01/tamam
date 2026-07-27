@@ -4,6 +4,7 @@ namespace App\Exceptions;
 
 use App\Domain\Auth\Exceptions\AuthException;
 use App\Domain\Category\Exceptions\CategoryException;
+use App\Domain\Listing\Exceptions\ListingException;
 use App\Domain\Profile\Exceptions\ProfileException;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -38,6 +39,11 @@ class ApiExceptionHandler
                 errors: $exception->errors(),
             ),
             $exception instanceof CategoryException => ApiResponse::error(
+                message: $exception->getMessage(),
+                status: $exception->status(),
+                errors: $exception->errors(),
+            ),
+            $exception instanceof ListingException => ApiResponse::error(
                 message: $exception->getMessage(),
                 status: $exception->status(),
                 errors: $exception->errors(),

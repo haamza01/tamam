@@ -13,14 +13,18 @@ use App\Application\Auth\PhoneVerificationService;
 use App\Application\Auth\RefreshTokenService;
 use App\Application\Catalog\CatalogCacheService;
 use App\Application\Category\CategoryHierarchyValidator;
+use App\Application\Category\CategoryListingCountService;
 use App\Application\Category\CategoryService;
+use App\Application\Listing\ListingAttributeValidator;
+use App\Application\Listing\ListingService;
+use App\Application\Listing\ListingStateMachine;
 use App\Application\Location\LocationService;
 use App\Application\Moderation\ProhibitedWordsChecker;
 use App\Application\Platform\PlatformSettingsService;
 use App\Application\Profile\AvatarStorageService;
 use App\Application\Profile\ProfileAuditService;
 use App\Application\Profile\ProfileService;
-use App\Application\Shared\LocaleResolver;
+use App\Application\Shared\SlugGenerator;
 use App\Domain\Auth\Contracts\OtpProviderInterface;
 use App\Infrastructure\Auth\LogOtpProvider;
 use App\Models\Category;
@@ -67,6 +71,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(CategoryService::class);
         $this->app->singleton(LocationService::class);
 
+        $this->app->singleton(SlugGenerator::class);
+        $this->app->singleton(CategoryListingCountService::class);
+        $this->app->singleton(ListingAttributeValidator::class);
+        $this->app->singleton(ListingStateMachine::class);
+        $this->app->singleton(ListingService::class);
+
         $this->app->bind(OtpProviderInterface::class, function (): OtpProviderInterface {
             $driver = (string) config('otp.driver');
 
@@ -92,6 +102,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth-otp-resend', fn (Request $request) => Limit::perHour(3)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('profile-update', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('profile-avatar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('listing-write', fn (Request $request) => Limit::perMinute(20)->by($request->user()?->id ?: $request->ip()));
 
         Category::observe(CategoryObserver::class);
         CategoryTranslation::observe(CategoryTranslationObserver::class);

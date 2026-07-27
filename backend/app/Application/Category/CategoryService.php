@@ -41,6 +41,16 @@ class CategoryService
         return $tree;
     }
 
+    public function attributesForActiveCategory(string $slug, string $locale): Collection
+    {
+        $category = $this->findActiveBySlug($slug, $locale);
+
+        return $category->attributes()
+            ->with(['translations' => fn ($query) => $query->whereIn('locale', [$locale, 'ar', 'en']), 'options.translations'])
+            ->orderBy('sort_order')
+            ->get();
+    }
+
     public function findActiveBySlug(string $slug, string $locale): Category
     {
         $category = Category::query()

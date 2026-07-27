@@ -3,6 +3,7 @@
 use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureAccountActive;
 use App\Http\Middleware\EnsurePermission;
+use App\Http\Middleware\EnsurePhoneVerified;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\ValidateRefreshCsrf;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => EnsurePermission::class,
             'account.active' => EnsureAccountActive::class,
+            'phone.verified' => EnsurePhoneVerified::class,
             'refresh.csrf' => ValidateRefreshCsrf::class,
         ]);
     })

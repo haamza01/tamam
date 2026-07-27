@@ -395,7 +395,7 @@ Fields
 - status (active, hidden, archived)
 - seo_title
 - seo_description
-- listing_count (cached)
+- listing_count (cached; **maintained in Phase 1E+** — incremented/decremented for `published` listings on leaf categories)
 - created_at
 - updated_at
 - deleted_at
@@ -517,6 +517,8 @@ Fields
 ## Listings
 
 Main marketplace table.
+
+**Phase 1E implementation notes:** Implemented without `business_id`, `listing_type`, or direct `country_id` (country resolved via `city_id`). Price is `decimal(12,2)` with a PostgreSQL non-negative CHECK. Optimistic concurrency via `version`. Soft deletes enabled. Image tables/endpoints deferred to Phase 1F.
 
 Fields
 
