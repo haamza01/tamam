@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Application\Storage\PublicAssetUrlResolver;
+use App\Domain\Listing\Enums\ListingImageStatus;
 use App\Models\Listing;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -31,7 +33,7 @@ class ListingCardResource extends JsonResource
             'price_type' => $this->price_type->value,
             'currency' => $this->currency,
             'condition' => $this->condition?->value,
-            'cover_image' => null,
+            'cover_image' => $this->coverImageUrl(),
             'city' => $this->whenLoaded('city', fn () => [
                 'id' => $this->city->id,
                 'slug' => $this->city->slug,
@@ -45,5 +47,24 @@ class ListingCardResource extends JsonResource
             'published_at' => $this->published_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    private function coverImageUrl(): ?string
+    {
+        if (! $this->relationLoaded('images')) {
+            return null;
+        }
+
+        $cover = $this->images->first(fn ($image) => $image->status === ListingImageStatus::Ready && $image->sort_order === 0)
+            ?? $this->images->first(fn ($image) => $image->status === ListingImageStatus::Ready);
+
+        if ($cover === null) {
+            return null;
+        }
+
+        /** @var PublicAssetUrlResolver $urlResolver */
+        $urlResolver = app(PublicAssetUrlResolver::class);
+
+        return $urlResolver->resolve($cover->thumbnail_object_key ?? $cover->processed_object_key);
     }
 }

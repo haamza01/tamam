@@ -28,9 +28,17 @@ class PublicAssetsBucketProvisioner
         /** @var array<string, mixed> $diskConfig */
         $diskConfig = config('filesystems.disks.public_assets');
         $bucket = (string) ($diskConfig['bucket'] ?? '');
-        $prefix = trim((string) config('media.avatar.path_prefix'), '/');
 
-        if ($bucket === '' || $prefix === '') {
+        if ($bucket === '') {
+            return;
+        }
+
+        $prefixes = array_values(array_filter([
+            trim((string) config('media.avatar.path_prefix'), '/'),
+            trim((string) config('media.listing.path_prefix'), '/'),
+        ]));
+
+        if ($prefixes === []) {
             return;
         }
 
@@ -49,6 +57,11 @@ class PublicAssetsBucketProvisioner
             $client->createBucket(['Bucket' => $bucket]);
         }
 
+        $resources = array_map(
+            fn (string $prefix): string => "arn:aws:s3:::{$bucket}/{$prefix}/*",
+            $prefixes,
+        );
+
         $policy = [
             'Version' => '2012-10-17',
             'Statement' => [
@@ -56,7 +69,7 @@ class PublicAssetsBucketProvisioner
                     'Effect' => 'Allow',
                     'Principal' => ['AWS' => ['*']],
                     'Action' => ['s3:GetObject'],
-                    'Resource' => ["arn:aws:s3:::{$bucket}/{$prefix}/*"],
+                    'Resource' => $resources,
                 ],
             ],
         ];

@@ -92,6 +92,12 @@ class Listing extends Model
         return $this->hasMany(ListingAttributeValue::class);
     }
 
+    /** @return HasMany<ListingImage, $this> */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ListingImage::class)->orderBy('sort_order');
+    }
+
     /** @return HasOne<ListingStatistic, $this> */
     public function statistics(): HasOne
     {

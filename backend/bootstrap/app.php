@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function ($schedule): void {
         $schedule->command('listings:expire')->everyFifteenMinutes();
+        $schedule->command('listings:cleanup-orphan-images')->daily();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prependToGroup('api', [

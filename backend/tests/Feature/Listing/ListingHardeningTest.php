@@ -266,9 +266,7 @@ class ListingHardeningTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)
-            ->postJson("/api/v1/listings/{$listingId}/submit")
-            ->assertOk()
+        $this->submitListingForReview($listingId, $token)
             ->assertJsonPath('data.listing.status', 'published');
     }
 
@@ -283,9 +281,7 @@ class ListingHardeningTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)
-            ->postJson("/api/v1/listings/{$listingId}/submit")
-            ->assertOk()
+        $this->submitListingForReview($listingId, $token)
             ->assertJsonPath('data.listing.status', 'pending_review');
     }
 
@@ -300,9 +296,7 @@ class ListingHardeningTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)
-            ->postJson("/api/v1/listings/{$listingId}/submit")
-            ->assertOk()
+        $this->submitListingForReview($listingId, $token)
             ->assertJsonPath('data.listing.status', 'pending_review');
     }
 

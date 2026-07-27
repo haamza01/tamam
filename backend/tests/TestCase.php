@@ -86,6 +86,7 @@ abstract class TestCase extends BaseTestCase
             'profile-update',
             'profile-avatar',
             'listing-write',
+            'listing-image',
         ] as $limiter) {
             RateLimiter::clear($limiter);
         }

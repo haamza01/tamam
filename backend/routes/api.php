@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ListingController;
+use App\Http\Controllers\Api\V1\ListingImageController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\UserListingController;
@@ -65,6 +66,12 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/{id}/renew', [ListingController::class, 'renew'])->whereUuid('id');
             Route::post('/{id}/archive', [ListingController::class, 'archive'])->whereUuid('id');
             Route::post('/{id}/restore', [ListingController::class, 'restore'])->whereUuid('id');
+        });
+
+        Route::middleware(['auth:api', 'account.active', 'phone.verified', 'throttle:listing-image'])->group(function (): void {
+            Route::post('/{id}/images', [ListingImageController::class, 'store'])->whereUuid('id');
+            Route::put('/{id}/images/reorder', [ListingImageController::class, 'reorder'])->whereUuid('id');
+            Route::delete('/{id}/images/{imageId}', [ListingImageController::class, 'destroy'])->whereUuid('id')->whereUuid('imageId');
         });
     });
 

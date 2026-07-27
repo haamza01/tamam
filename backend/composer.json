@@ -7,10 +7,11 @@
     "license": "proprietary",
     "require": {
         "php": "^8.4",
+        "intervention/image": "^3.11",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "php-open-source-saver/jwt-auth": "^2.8",
-        "league/flysystem-aws-s3-v3": "^3.29"
+        "league/flysystem-aws-s3-v3": "^3.29",
+        "php-open-source-saver/jwt-auth": "^2.8"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

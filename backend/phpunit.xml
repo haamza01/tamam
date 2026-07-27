@@ -37,5 +37,6 @@
         <env name="AUTH_COOKIE_SECURE" value="false"/>
         <env name="PUBLIC_ASSETS_DRIVER" value="local"/>
         <env name="AVATAR_DISK" value="public_assets"/>
+        <env name="STORAGE_PROVISION_BUCKETS" value="false"/>
     </php>
 </phpunit>

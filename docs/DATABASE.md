@@ -518,7 +518,7 @@ Fields
 
 Main marketplace table.
 
-**Phase 1E implementation notes:** Implemented without `business_id`, `listing_type`, or direct `country_id` (country resolved via `city_id`). Price is `decimal(12,2)` with a PostgreSQL non-negative CHECK. Optimistic concurrency via `version`. Soft deletes enabled. Image tables/endpoints deferred to Phase 1F.
+**Phase 1E implementation notes:** Implemented without `business_id`, `listing_type`, or direct `country_id` (country resolved via `city_id`). Price is `decimal(12,2)` with a PostgreSQL non-negative CHECK. Optimistic concurrency via `version`. Soft deletes enabled. Listing images implemented in Phase 1F (`listing_images` table).
 
 Fields
 
@@ -582,17 +582,39 @@ Unique
 
 ## Listing Images
 
-Stores listing gallery.
+Stores listing gallery metadata. Binary data lives in object storage only (no URLs stored as canonical data).
+
+**Phase 1F implementation notes:** Hard delete (no soft deletes). Object keys stored; public URLs derived at runtime via `PUBLIC_ASSETS_URL`. Source uploads stored on private `local` disk until processing completes.
 
 Fields
 
-- id
-- listing_id
-- image_url
-- thumbnail_url
-- sort_order
-- created_at
-- updated_at
+- id (UUID)
+- listing_id (UUID, FK → listings, cascade delete)
+- original_object_key (nullable; private source path `{prefix}/{listing_id}/{image_id}/source`)
+- processed_object_key (nullable; public `{prefix}/{listing_id}/{image_id}/original.webp`)
+- thumbnail_object_key (nullable; public `{prefix}/{listing_id}/{image_id}/thumb.webp`)
+- mime_type
+- original_width, original_height
+- processed_width, processed_height
+- file_size (bytes)
+- sort_order (0-based; first ready image = cover)
+- status (`pending`, `processing`, `ready`, `failed`)
+- processing_error_code (nullable; safe stable code for owner API)
+- created_at, updated_at
+
+Unique
+
+- listing_id + sort_order
+
+Indexes
+
+- listing_id + status
+- status + updated_at
+
+Constraints (PostgreSQL)
+
+- sort_order ≥ 0
+- file_size, width, height ≥ 0 when not null
 
 ---
 

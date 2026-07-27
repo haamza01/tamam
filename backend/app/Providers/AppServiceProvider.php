@@ -16,6 +16,10 @@ use App\Application\Category\CategoryHierarchyValidator;
 use App\Application\Category\CategoryListingCountService;
 use App\Application\Category\CategoryService;
 use App\Application\Listing\ListingAttributeValidator;
+use App\Application\Listing\ListingImageProcessor;
+use App\Application\Listing\ListingImageService;
+use App\Application\Listing\ListingImageStorageService;
+use App\Application\Listing\ListingImageValidator;
 use App\Application\Listing\ListingService;
 use App\Application\Listing\ListingStateMachine;
 use App\Application\Location\LocationService;
@@ -24,7 +28,9 @@ use App\Application\Platform\PlatformSettingsService;
 use App\Application\Profile\AvatarStorageService;
 use App\Application\Profile\ProfileAuditService;
 use App\Application\Profile\ProfileService;
+use App\Application\Shared\LocaleResolver;
 use App\Application\Shared\SlugGenerator;
+use App\Application\Storage\PublicAssetUrlResolver;
 use App\Domain\Auth\Contracts\OtpProviderInterface;
 use App\Infrastructure\Auth\LogOtpProvider;
 use App\Models\Category;
@@ -74,6 +80,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SlugGenerator::class);
         $this->app->singleton(CategoryListingCountService::class);
         $this->app->singleton(ListingAttributeValidator::class);
+        $this->app->singleton(PublicAssetUrlResolver::class);
+        $this->app->singleton(ListingImageValidator::class);
+        $this->app->singleton(ListingImageStorageService::class);
+        $this->app->singleton(ListingImageProcessor::class);
+        $this->app->singleton(ListingImageService::class);
         $this->app->singleton(ListingStateMachine::class);
         $this->app->singleton(ListingService::class);
 
@@ -103,6 +114,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('profile-update', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('profile-avatar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('listing-write', fn (Request $request) => Limit::perMinute(20)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('listing-image', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
 
         Category::observe(CategoryObserver::class);
         CategoryTranslation::observe(CategoryTranslationObserver::class);

@@ -19,6 +19,10 @@ class ListingAttributeTest extends ListingTestCase
             ]))
             ->json('data.listing.id');
 
+        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/images", [
+            'image' => $this->makePngUpload(),
+        ])->assertStatus(202);
+
         $response = $this->withApiToken($token)
             ->postJson("/api/v1/listings/{$listingId}/submit")
             ->assertUnprocessable();

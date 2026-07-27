@@ -14,7 +14,10 @@ use Database\Seeders\CountrySeeder;
 use Database\Seeders\PlatformSettingsSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use Tests\TestCase;
 
@@ -33,6 +36,14 @@ abstract class ListingTestCase extends TestCase
             CitySeeder::class,
             CategorySeeder::class,
             CategoryAttributeSeeder::class,
+        ]);
+
+        Storage::fake('public_assets');
+        Storage::fake('local');
+        config([
+            'media.listing.disk' => 'public_assets',
+            'media.listing.source_disk' => 'local',
+            'filesystems.disks.public_assets.url' => 'http://assets.test/tamam-public',
         ]);
     }
 
@@ -104,14 +115,35 @@ abstract class ListingTestCase extends TestCase
 
     protected function publishListing(string $listingId, User $owner, User $moderator): Listing
     {
-        $this->withApiToken($this->authenticate($owner))
-            ->postJson("/api/v1/listings/{$listingId}/submit")
-            ->assertOk();
+        $token = $this->authenticate($owner);
+
+        $this->submitListingForReview($listingId, $token);
 
         $listing = Listing::query()->findOrFail($listingId);
         app(ListingStateMachine::class)->approve($listing, $moderator);
 
         return $listing->fresh();
+    }
+
+    protected function submitListingForReview(string $listingId, string $token): TestResponse
+    {
+        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/images", [
+            'image' => $this->makePngUpload(),
+        ])->assertStatus(202);
+
+        return $this->withApiToken($token)
+            ->postJson("/api/v1/listings/{$listingId}/submit")
+            ->assertOk();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function makePngUpload(string $name = 'photo.png'): UploadedFile
+    {
+        $binary = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+
+        return UploadedFile::fake()->createWithContent($name, $binary);
     }
 
     protected function createPublishedListing(?User $owner = null, ?User $moderator = null): Listing

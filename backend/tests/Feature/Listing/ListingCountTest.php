@@ -23,7 +23,7 @@ class ListingCountTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/submit")->assertOk();
+        $this->submitListingForReview($listingId, $token);
         app(ListingStateMachine::class)->approve(Listing::query()->findOrFail($listingId), $moderator);
 
         $this->assertSame(1, $category->fresh()->listing_count);
@@ -41,7 +41,7 @@ class ListingCountTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/submit")->assertOk();
+        $this->submitListingForReview($listingId, $token);
         app(ListingStateMachine::class)->approve(Listing::query()->findOrFail($listingId), $moderator);
 
         $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/pause")->assertOk();
@@ -62,7 +62,7 @@ class ListingCountTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/submit")->assertOk();
+        $this->submitListingForReview($listingId, $token);
         app(ListingStateMachine::class)->approve(Listing::query()->findOrFail($listingId), $moderator);
 
         app(CategoryListingCountService::class)->recalculateAll();

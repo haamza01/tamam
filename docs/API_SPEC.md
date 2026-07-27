@@ -420,7 +420,7 @@ Get nested location tree (country → city → district).
 
 # Listings
 
-**Phase 1E status:** Core listing CRUD, lifecycle actions, owner listing index, category attributes, and public browse/detail (without images) are implemented under `/api/v1`. Image upload/reorder/delete routes remain specified below but return **501/deferred until Phase 1F**. Favourite, report, and admin moderation listing routes remain deferred.
+**Phase 1E status:** Core listing CRUD, lifecycle actions, owner listing index, category attributes, and public browse/detail are implemented under `/api/v1`. **Phase 1F** implements listing image upload, reorder, and delete. Favourite, report, and admin moderation listing routes remain deferred.
 
 GET
 

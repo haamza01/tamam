@@ -2,9 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Domain\Listing\Enums\ListingImageStatus;
 use App\Models\Listing;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection;
 
 /** @mixin Listing */
 class ListingDetailResource extends JsonResource
@@ -42,7 +44,7 @@ class ListingDetailResource extends JsonResource
             'currency' => $this->currency,
             'condition' => $this->condition?->value,
             'contact_preferences' => $this->contact_preferences,
-            'images' => [],
+            'images' => $this->relationLoaded('images') ? $this->mapImages() : [],
             'attributes' => $this->whenLoaded(
                 'attributeValues',
                 fn () => $this->attributeValues
@@ -77,5 +79,19 @@ class ListingDetailResource extends JsonResource
         }
 
         return $data;
+    }
+
+    /**
+     * @return Collection<int, ListingImageResource>
+     */
+    private function mapImages()
+    {
+        $images = $this->ownerView
+            ? $this->images
+            : $this->images->filter(fn ($image) => $image->status === ListingImageStatus::Ready);
+
+        return $images
+            ->map(fn ($image) => (new ListingImageResource($image))->forOwner($this->ownerView))
+            ->values();
     }
 }

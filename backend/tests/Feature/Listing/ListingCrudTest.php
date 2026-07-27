@@ -83,7 +83,7 @@ class ListingCrudTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/submit")->assertOk();
+        $this->submitListingForReview($listingId, $token);
 
         $listing = Listing::query()->findOrFail($listingId);
         app(ListingStateMachine::class)->approve($listing, $moderator);
@@ -112,7 +112,7 @@ class ListingCrudTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/submit")->assertOk();
+        $this->submitListingForReview($listingId, $token);
         app(ListingStateMachine::class)->approve(Listing::query()->findOrFail($listingId), $moderator);
 
         $this->asGuest()

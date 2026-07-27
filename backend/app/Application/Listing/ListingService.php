@@ -243,7 +243,7 @@ class ListingService
 
         $query = Listing::query()
             ->publiclyVisible()
-            ->with(['category.translations', 'city.translations', 'user']);
+            ->with(['category.translations', 'city.translations', 'user', 'images']);
 
         if (! empty($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);
@@ -290,7 +290,7 @@ class ListingService
 
         return Listing::query()
             ->publiclyVisible()
-            ->with(['category.translations', 'city.translations', 'user'])
+            ->with(['category.translations', 'city.translations', 'user', 'images'])
             ->orderByDesc('published_at')
             ->limit($limit)
             ->get();
@@ -305,7 +305,7 @@ class ListingService
             ->where('category_id', $listing->category_id)
             ->where('city_id', $listing->city_id)
             ->whereKeyNot($listing->id)
-            ->with(['category.translations', 'city.translations', 'user'])
+            ->with(['category.translations', 'city.translations', 'user', 'images'])
             ->orderByDesc('published_at')
             ->limit($limit)
             ->get();
@@ -329,6 +329,8 @@ class ListingService
             ])->values()->all(),
             requireAllRequired: true,
         );
+
+        app(ListingImageService::class)->assertSubmitMinimum($listing);
 
         return $this->stateMachine->submit($listing, $user);
     }
@@ -493,6 +495,7 @@ class ListingService
             'district.translations',
             'attributeValues.categoryAttribute.translations',
             'attributeValues.categoryAttribute.options.translations',
+            'images',
             'statistics',
             'user',
         ];

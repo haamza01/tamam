@@ -19,9 +19,7 @@ class ListingLifecycleTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)
-            ->postJson("/api/v1/listings/{$listingId}/submit")
-            ->assertOk()
+        $this->submitListingForReview($listingId, $token)
             ->assertJsonPath('data.listing.status', 'pending_review');
     }
 
@@ -51,7 +49,7 @@ class ListingLifecycleTest extends ListingTestCase
             ->postJson('/api/v1/listings', $this->validListingPayload())
             ->json('data.listing.id');
 
-        $this->withApiToken($token)->postJson("/api/v1/listings/{$listingId}/submit")->assertOk();
+        $this->submitListingForReview($listingId, $token);
         app(ListingStateMachine::class)->approve(Listing::query()->findOrFail($listingId), $moderator);
 
         $this->withApiToken($token)
@@ -77,7 +75,7 @@ class ListingLifecycleTest extends ListingTestCase
             $this->withApiToken($token)->postJson('/api/v1/listings', $this->validListingPayload())->json('data.listing.id')
         );
 
-        $this->withApiToken($token)->postJson("/api/v1/listings/{$listing->id}/submit")->assertOk();
+        $this->submitListingForReview($listing->id, $token);
         app(ListingStateMachine::class)->reject($listing->fresh(), $moderator, 'Incomplete details');
 
         $this->withApiToken($token)
