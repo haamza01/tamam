@@ -11,13 +11,13 @@ abstract class TestCase extends BaseTestCase
     protected function withAuthRefreshCookies(string $refreshToken, ?string $csrfToken = null): static
     {
         $this->withCredentials()
-            ->withUnencryptedCookie(
+            ->withCookie(
                 (string) config('auth_cookies.refresh_cookie'),
                 $refreshToken,
             );
 
         if ($csrfToken !== null) {
-            $this->withUnencryptedCookie(
+            $this->withCookie(
                 (string) config('auth_cookies.csrf_cookie'),
                 $csrfToken,
             )->withHeader('X-Auth-CSRF', $csrfToken);
@@ -28,6 +28,6 @@ abstract class TestCase extends BaseTestCase
 
     protected function authCookieFromResponse(TestResponse $response, string $name): Cookie
     {
-        return $response->getCookie($name, decrypt: false);
+        return $response->getCookie($name);
     }
 }

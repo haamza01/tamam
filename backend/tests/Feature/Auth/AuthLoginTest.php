@@ -35,6 +35,7 @@ class AuthLoginTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
+            ->assertJsonPath('data.expires_in', 900)
             ->assertJsonStructure(['data' => ['access_token', 'token_type', 'expires_in', 'user']])
             ->assertJsonMissingPath('data.user.password');
 

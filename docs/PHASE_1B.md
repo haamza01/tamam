@@ -36,15 +36,30 @@
 
 | Setting | Env / default | Notes |
 |---------|---------------|-------|
-| Access token TTL | `JWT_TTL` (60 min) | Returned in JSON only; client holds in memory |
+| Access token TTL | `JWT_TTL` / `JWT_ACCESS_TTL` (15 min) | Returned in JSON only; client holds in memory |
 | Refresh token TTL | `JWT_REFRESH_TTL_DAYS` (14 days) | Stored hashed in DB; raw value in cookie only |
 | Refresh cookie | `AUTH_REFRESH_COOKIE` → `tamam_refresh_token` | httpOnly, path `/api/v1/auth` |
 | CSRF cookie | `AUTH_CSRF_COOKIE` → `tamam_auth_csrf` | Not httpOnly; path `/api/v1/auth` |
 | Cookie Secure | `AUTH_COOKIE_SECURE` (true in production) | Always Secure in production |
 | SameSite | `AUTH_COOKIE_SAME_SITE` (`lax`) | Suitable for same-site SPA/API |
-| CSRF header | `X-Auth-CSRF` | Must match CSRF cookie on refresh |
+| CSRF header | `X-Auth-CSRF` | Must match CSRF cookie on refresh (see cookie encryption below) |
 
-Auth cookies are excluded from Laravel cookie encryption so the refresh flow can use opaque tokens directly.
+### Cookie encryption
+
+Authentication cookies **remain encrypted** by Laravel's `EncryptCookies` middleware. Exclusion is **not required** for the refresh flow. The middleware is prepended to the `api` group because Laravel's default API stack does not include it (unlike `web`).
+
+| Cookie | Encryption | Why it still works |
+|--------|------------|-------------------|
+| `tamam_refresh_token` | Yes (httpOnly) | Browser sends the encrypted value; middleware decrypts before the refresh token is hashed and validated. JavaScript never reads this cookie. |
+| `tamam_auth_csrf` | Yes (readable by JS) | Follows the Laravel XSRF pattern: client-side code reads the encrypted cookie value from `document.cookie` and sends it in `X-Auth-CSRF`; `ValidateRefreshCsrf` decrypts the header and compares it to the decrypted cookie value. |
+
+**Security implications of encryption enabled (preferred):**
+
+- Cookie payloads are signed and encrypted with `APP_KEY`, adding defence-in-depth even though refresh tokens are opaque random strings and CSRF tokens are random.
+- A stolen database or log line still does not reveal raw refresh tokens (only SHA-256 hashes are stored server-side).
+- Client integrations must copy the CSRF cookie value verbatim into `X-Auth-CSRF` (encrypted form in production), not a separately cached plain token.
+
+**Previous exclusion (removed):** Cookies were briefly excluded during development to simplify PHPUnit cookie assertions. That was a testing convenience, not a security requirement. Production and tests now use Laravel encryption end-to-end.
 
 ## OTP configuration
 

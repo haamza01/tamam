@@ -85,7 +85,7 @@ Authentication uses **JWT access tokens** with **refresh tokens** and secure tok
 
 Rules:
 
-- Access tokens are short-lived (default 60 minutes, `JWT_TTL`) and returned in the JSON body only — never stored in `localStorage` by the backend; clients should keep them in memory.
+- Access tokens are short-lived (default **15 minutes**, `JWT_TTL` / `JWT_ACCESS_TTL`) and returned in the JSON body only — never stored in `localStorage` by the backend; clients should keep them in memory.
 - Refresh tokens are long-lived (default 14 days, `JWT_REFRESH_TTL_DAYS`) and stored server-side as SHA-256 hashes in `refresh_tokens`.
 - The raw refresh token is sent only in the `tamam_refresh_token` httpOnly cookie (path `/api/v1/auth`, Secure in production).
 - `POST /auth/refresh` requires the CSRF double-submit pattern: `tamam_auth_csrf` cookie plus matching `X-Auth-CSRF` header.
