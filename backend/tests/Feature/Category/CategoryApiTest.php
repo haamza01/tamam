@@ -124,4 +124,18 @@ class CategoryApiTest extends TestCase
 
         app(CatalogCacheService::class)->flushCategories();
     }
+
+    public function test_category_translation_change_invalidates_cache(): void
+    {
+        Cache::flush();
+
+        $this->getJson('/api/v1/categories/tree?locale=en')->assertOk();
+        $cacheKey = config('catalog.cache_keys.categories_tree').':en';
+        $this->assertTrue(Cache::has($cacheKey));
+
+        $category = Category::query()->where('slug', 'vehicles')->firstOrFail();
+        $category->translations()->where('locale', 'en')->firstOrFail()->update(['name' => 'Updated Vehicles']);
+
+        $this->assertFalse(Cache::has($cacheKey));
+    }
 }

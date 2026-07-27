@@ -3,25 +3,20 @@
 namespace App\Observers;
 
 use App\Application\Catalog\CatalogCacheService;
-use App\Models\Category;
+use App\Models\CategoryTranslation;
 
-class CategoryObserver
+class CategoryTranslationObserver
 {
     public function __construct(
         private readonly CatalogCacheService $cache,
     ) {}
 
-    public function saved(Category $category): void
+    public function saved(CategoryTranslation $translation): void
     {
         $this->cache->flushCategories();
     }
 
-    public function deleted(Category $category): void
-    {
-        $this->cache->flushCategories();
-    }
-
-    public function restored(Category $category): void
+    public function deleted(CategoryTranslation $translation): void
     {
         $this->cache->flushCategories();
     }

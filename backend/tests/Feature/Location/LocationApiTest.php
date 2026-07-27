@@ -129,4 +129,18 @@ class LocationApiTest extends TestCase
 
         $this->assertFalse(Cache::has($cacheKey));
     }
+
+    public function test_location_translation_change_invalidates_cache(): void
+    {
+        Cache::flush();
+
+        $this->getJson('/api/v1/locations/tree?locale=en')->assertOk();
+        $cacheKey = config('catalog.cache_keys.locations_tree').':en';
+        $this->assertTrue(Cache::has($cacheKey));
+
+        $country = Country::query()->where('slug', 'qatar')->firstOrFail();
+        $country->translations()->where('locale', 'en')->firstOrFail()->update(['name' => 'State of Qatar']);
+
+        $this->assertFalse(Cache::has($cacheKey));
+    }
 }

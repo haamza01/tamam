@@ -24,11 +24,17 @@ use App\Application\Shared\LocaleResolver;
 use App\Domain\Auth\Contracts\OtpProviderInterface;
 use App\Infrastructure\Auth\LogOtpProvider;
 use App\Models\Category;
+use App\Models\CategoryTranslation;
 use App\Models\City;
+use App\Models\CityTranslation;
 use App\Models\Country;
+use App\Models\CountryTranslation;
 use App\Models\District;
+use App\Models\DistrictTranslation;
 use App\Observers\CategoryObserver;
+use App\Observers\CategoryTranslationObserver;
 use App\Observers\LocationObserver;
+use App\Observers\LocationTranslationObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -88,8 +94,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('profile-avatar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
 
         Category::observe(CategoryObserver::class);
+        CategoryTranslation::observe(CategoryTranslationObserver::class);
         Country::observe(LocationObserver::class);
+        CountryTranslation::observe(LocationTranslationObserver::class);
         City::observe(LocationObserver::class);
+        CityTranslation::observe(LocationTranslationObserver::class);
         District::observe(LocationObserver::class);
+        DistrictTranslation::observe(LocationTranslationObserver::class);
     }
 }

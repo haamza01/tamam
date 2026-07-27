@@ -2,12 +2,14 @@
 
 namespace App\Application\Catalog;
 
+use App\Application\Shared\LocaleResolver;
 use Illuminate\Support\Facades\Cache;
 
 class CatalogCacheService
 {
-    /** @var list<string> */
-    private const LOCALES = ['ar', 'en'];
+    public function __construct(
+        private readonly LocaleResolver $localeResolver,
+    ) {}
 
     public function remember(string $key, callable $callback): mixed
     {
@@ -49,7 +51,7 @@ class CatalogCacheService
     {
         try {
             foreach ($baseKeys as $baseKey) {
-                foreach (self::LOCALES as $locale) {
+                foreach ($this->localeResolver->supported() as $locale) {
                     Cache::forget("{$baseKey}:{$locale}");
                 }
             }
