@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function ($schedule): void {
+        $schedule->command('listings:expire')->everyFifteenMinutes();
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prependToGroup('api', [
             EncryptCookies::class,

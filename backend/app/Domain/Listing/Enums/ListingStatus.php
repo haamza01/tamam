@@ -46,7 +46,7 @@ enum ListingStatus: string
             self::Paused => [self::Published, self::Archived, self::Deleted],
             self::Sold => [self::Archived, self::Deleted],
             self::Expired => [self::Published, self::Archived, self::Deleted],
-            self::Archived => [self::Draft, self::Published, self::Deleted],
+            self::Archived => [self::Draft, self::Deleted],
             self::Blocked => [self::Deleted],
             self::Deleted => [],
         };

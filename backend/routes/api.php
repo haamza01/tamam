@@ -50,27 +50,26 @@ Route::prefix('v1')->group(function (): void {
 
     Route::prefix('listings')->group(function (): void {
         Route::get('/', [ListingController::class, 'index']);
-        Route::get('/featured', [ListingController::class, 'featured']);
         Route::get('/latest', [ListingController::class, 'latest']);
-        Route::get('/{id}/similar', [ListingController::class, 'similar']);
-        Route::get('/{id}', [ListingController::class, 'show']);
+        Route::get('/{id}/similar', [ListingController::class, 'similar'])->whereUuid('id');
+        Route::get('/{id}', [ListingController::class, 'show'])->whereUuid('id');
 
         Route::middleware(['auth:api', 'account.active', 'phone.verified', 'throttle:listing-write'])->group(function (): void {
             Route::post('/', [ListingController::class, 'store']);
-            Route::put('/{id}', [ListingController::class, 'update']);
-            Route::delete('/{id}', [ListingController::class, 'destroy']);
-            Route::post('/{id}/submit', [ListingController::class, 'submit']);
-            Route::post('/{id}/pause', [ListingController::class, 'pause']);
-            Route::post('/{id}/activate', [ListingController::class, 'activate']);
-            Route::post('/{id}/mark-sold', [ListingController::class, 'markSold']);
-            Route::post('/{id}/renew', [ListingController::class, 'renew']);
-            Route::post('/{id}/archive', [ListingController::class, 'archive']);
-            Route::post('/{id}/restore', [ListingController::class, 'restore']);
+            Route::put('/{id}', [ListingController::class, 'update'])->whereUuid('id');
+            Route::delete('/{id}', [ListingController::class, 'destroy'])->whereUuid('id');
+            Route::post('/{id}/submit', [ListingController::class, 'submit'])->whereUuid('id');
+            Route::post('/{id}/pause', [ListingController::class, 'pause'])->whereUuid('id');
+            Route::post('/{id}/activate', [ListingController::class, 'activate'])->whereUuid('id');
+            Route::post('/{id}/mark-sold', [ListingController::class, 'markSold'])->whereUuid('id');
+            Route::post('/{id}/renew', [ListingController::class, 'renew'])->whereUuid('id');
+            Route::post('/{id}/archive', [ListingController::class, 'archive'])->whereUuid('id');
+            Route::post('/{id}/restore', [ListingController::class, 'restore'])->whereUuid('id');
         });
     });
 
     Route::middleware(['auth:api', 'account.active'])->prefix('users/me')->group(function (): void {
         Route::get('/listings', [UserListingController::class, 'index']);
-        Route::get('/listings/{id}/statistics', [UserListingController::class, 'statistics']);
+        Route::get('/listings/{id}/statistics', [UserListingController::class, 'statistics'])->whereUuid('id');
     });
 });

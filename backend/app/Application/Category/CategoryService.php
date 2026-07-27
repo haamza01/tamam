@@ -3,6 +3,7 @@
 namespace App\Application\Category;
 
 use App\Application\Catalog\CatalogCacheService;
+use App\Application\Listing\ListingExpiryService;
 use App\Domain\Category\Enums\CategoryStatus;
 use App\Domain\Category\Exceptions\CategoryException;
 use App\Models\Category;
@@ -13,6 +14,7 @@ class CategoryService
 {
     public function __construct(
         private readonly CatalogCacheService $cache,
+        private readonly ListingExpiryService $listingExpiry,
     ) {}
 
     /**
@@ -20,6 +22,8 @@ class CategoryService
      */
     public function flatActive(string $locale): Collection
     {
+        $this->listingExpiry->expireDue();
+
         $cacheKey = (string) config('catalog.cache_keys.categories_flat').':'.$locale;
 
         /** @var Collection<int, Category> $categories */
@@ -33,6 +37,8 @@ class CategoryService
      */
     public function treeActive(string $locale): Collection
     {
+        $this->listingExpiry->expireDue();
+
         $cacheKey = (string) config('catalog.cache_keys.categories_tree').':'.$locale;
 
         /** @var Collection<int, Category> $tree */
@@ -53,6 +59,8 @@ class CategoryService
 
     public function findActiveBySlug(string $slug, string $locale): Category
     {
+        $this->listingExpiry->expireDue();
+
         $category = Category::query()
             ->where('slug', $slug)
             ->where('status', CategoryStatus::Active)

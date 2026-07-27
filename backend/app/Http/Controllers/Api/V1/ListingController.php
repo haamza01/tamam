@@ -58,20 +58,6 @@ class ListingController extends Controller
         );
     }
 
-    public function featured(Request $request): JsonResponse
-    {
-        $locale = $this->localeResolver->resolve($request);
-
-        return ApiResponse::success(
-            data: [
-                'listings' => $this->listingService->featured()
-                    ->map(fn (Listing $listing) => (new ListingCardResource($listing))->withLocale($locale))
-                    ->values(),
-            ],
-            message: 'Featured listings retrieved successfully.',
-        );
-    }
-
     public function show(Request $request, string $id): JsonResponse
     {
         $locale = $this->localeResolver->resolve($request);

@@ -27,8 +27,10 @@
 - `ListingStateMachine` — explicit transitions, audit, `published_at` / `expires_at`, category cache invalidation
 - `ListingAttributeValidator` — required/type/option/category validation, duplicate slug rejection
 - `CategoryListingCountService` — counts **publicly visible** published listings (not soft-deleted, not past `expires_at`)
+- `ListingExpiryService` — shared expiry reconciliation for reads and scheduler
 - `listings:recalculate-category-counts` — idempotent rebuild from live data
-- `listings:expire` — idempotent transition of published listings past `expires_at` to `expired` (scheduler deferred)
+- `listings:expire` — idempotent transition of published listings past `expires_at` to `expired`
+- Scheduled `listings:expire` every **15 minutes** (backup when catalog/listing APIs are idle)
 - `HasListingVisibility` — shared public visibility / counting rules
 - `SlugGenerator` — globally unique listing slugs with collision suffix
 - `EnsurePhoneVerified` middleware on listing write routes
@@ -41,7 +43,6 @@
 |--------|------|------|------------|-------------------|---------|
 | GET | `/api/v1/listings` | No | — | Public visibility scope | Browse published, non-expired listings |
 | GET | `/api/v1/listings/{id}` | Optional | — | `view` | Public detail or owner/moderator workflow view |
-| GET | `/api/v1/listings/featured` | No | — | Public visibility scope | Featured published listings |
 | GET | `/api/v1/listings/latest` | No | — | Public visibility scope | Recent published listings |
 | GET | `/api/v1/listings/{id}/similar` | No | — | Public source listing must be visible | Same category + city |
 | POST | `/api/v1/listings` | User | `auth:api`, `account.active`, `phone.verified`, `throttle:listing-write` | `create` | Create draft |
@@ -58,7 +59,7 @@
 | GET | `/api/v1/users/me/listings/{id}/statistics` | Owner | `auth:api`, `account.active` | Owner + listing ownership | Basic counters |
 | GET | `/api/v1/categories/{slug}/attributes` | No | — | — | Attribute definitions for forms |
 
-**Not implemented in Phase 1E:** image endpoints, admin/moderator HTTP moderation routes, Phase 1F routes.
+**Not implemented in Phase 1E:** image endpoints, admin/moderator HTTP moderation routes, Phase 1F routes, **`GET /listings/featured`** (deferred to Phase 2 featured/promotions per technical design §7.4 — route stub not registered until payments exist).
 
 ### Lifecycle states
 
@@ -75,12 +76,18 @@
 
 Enforced by DB constraint `listings_deleted_consistency` and `ListingStateMachine::softDelete()`.
 
-### Expiration strategy (approved: option B)
+### Expiration and listing_count consistency
 
-1. **Query-time exclusion:** `scopePubliclyVisible()` excludes published listings with `expires_at <= now()` from public index, detail, featured, latest, and similar.
-2. **Owner visibility:** owners (and moderators) may still view expired-but-not-yet-transitioned published listings with workflow fields.
-3. **Background command:** `php artisan listings:expire` idempotently transitions `published` + past `expires_at` → `expired`, decrements `listing_count`, writes audit `listing.expired`.
-4. **Scheduler:** deferred to a later phase; public queries never expose expired listings regardless.
+**Guarantee:** `categories.listing_count` in API responses always reflects **currently publicly visible** published listings (`status=published`, not soft-deleted, `expires_at` null or future).
+
+**Strategy (approved option B + read-path reconciliation + scheduled backup):**
+
+1. **Query-time exclusion:** `scopePubliclyVisible()` hides past-expiry rows from public listing endpoints immediately.
+2. **Read-path reconciliation:** `ListingExpiryService::expireDue()` runs before category catalog reads and public listing queries, transitioning due rows to `expired` and decrementing counts **before** the response is built. API consumers never see stale counts.
+3. **Scheduled backup:** `listings:expire` runs every 15 minutes via Laravel scheduler for listings that expire without catalog/listing API traffic. Maximum DB-only staleness without API reads: **15 minutes** (never exposed via category/listing APIs).
+4. **Manual/command repair:** `php artisan listings:expire` and `listings:recalculate-category-counts` remain idempotent repair tools.
+
+Owner visibility: owners may still view expired-but-not-yet-reconciled `published` listings until the next read-path or scheduled expiry pass touches that row.
 
 ### Transition matrix
 
@@ -111,7 +118,6 @@ Enforced by DB constraint `listings_deleted_consistency` and `ListingStateMachin
 | expired | archived | owner | — | — | — | listing.archived |
 | expired | deleted | owner | delete | — | deleted_at | listing.deleted |
 | archived | draft | owner restore | restore | — | — | listing.restored |
-| archived | published | owner (direct transition if allowed) | — | +1 | published_at, expires_at | listing.published |
 | archived | deleted | owner | delete | — | deleted_at | listing.deleted |
 | blocked | deleted | owner | delete | — | deleted_at | listing.deleted |
 | deleted | — | — | repeated delete OK | — | — | — |
@@ -155,10 +161,10 @@ Draft/pending/rejected/expired/archived/blocked listings return **404** to unaut
 
 **Activated in Phase 1E.**
 
-- Counts only **publicly visible** published listings: `status=published`, `deleted_at IS NULL`, and (`expires_at IS NULL` OR `expires_at > now()`).
-- Increments/decrements on lifecycle transitions and significant remoderation/category moves while counted.
-- Row-locked category updates; counts floored at 0.
-- `php artisan listings:recalculate-category-counts` rebuilds all categories (resets stale non-zero counts).
+- Semantics: **publicly visible published listings only** (same rules as `scopePubliclyVisible()`).
+- Kept accurate at API read time via read-path expiry reconciliation on category and public listing endpoints.
+- Increments/decrements on lifecycle transitions; row-locked updates floored at 0.
+- `php artisan listings:recalculate-category-counts` rebuilds all categories from live visible rows.
 
 ### Validation & error codes
 
@@ -196,7 +202,8 @@ Protected fields (`status`, `user_id`, `published_at`, `moderation_notes`, etc.)
 - Listing images (Phase 1F) — API returns `images: []`
 - Min-image requirement on submit (Phase 1F)
 - Admin moderation HTTP endpoints (Phase 1J)
-- Expiration **scheduler** job (command provided; cron deferred)
+- Expiration **scheduler wiring** — runs every 15 minutes; Phase 1E documents maximum idle staleness
+- **`GET /listings/featured`** — Phase 2 (featured promotions / payments)
 - Search / FTS (Phase 1G)
 - Favourites, messaging, reports, payments, promotions UI
 - Public seller profile pages

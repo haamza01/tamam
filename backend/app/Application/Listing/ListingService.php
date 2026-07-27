@@ -32,6 +32,7 @@ class ListingService
         private readonly SlugGenerator $slugGenerator,
         private readonly ListingAttributeValidator $attributeValidator,
         private readonly ListingStateMachine $stateMachine,
+        private readonly ListingExpiryService $listingExpiry,
         private readonly ProhibitedWordsChecker $prohibitedWords,
         private readonly PlatformSettingsService $settings,
         private readonly CategoryListingCountService $listingCounts,
@@ -196,6 +197,8 @@ class ListingService
 
     public function findPublic(string $id): Listing
     {
+        $this->listingExpiry->expireDue();
+
         $listing = Listing::query()
             ->publiclyVisible()
             ->whereKey($id)
@@ -236,6 +239,8 @@ class ListingService
      */
     public function paginatePublic(array $filters): LengthAwarePaginator
     {
+        $this->listingExpiry->expireDue();
+
         $query = Listing::query()
             ->publiclyVisible()
             ->with(['category.translations', 'city.translations', 'user']);
@@ -281,19 +286,10 @@ class ListingService
 
     public function latest(int $limit = 12): Collection
     {
-        return Listing::query()
-            ->publiclyVisible()
-            ->with(['category.translations', 'city.translations', 'user'])
-            ->orderByDesc('published_at')
-            ->limit($limit)
-            ->get();
-    }
+        $this->listingExpiry->expireDue();
 
-    public function featured(int $limit = 12): Collection
-    {
         return Listing::query()
             ->publiclyVisible()
-            ->where('featured', true)
             ->with(['category.translations', 'city.translations', 'user'])
             ->orderByDesc('published_at')
             ->limit($limit)
@@ -302,6 +298,8 @@ class ListingService
 
     public function similar(Listing $listing, int $limit = 8): Collection
     {
+        $this->listingExpiry->expireDue();
+
         return Listing::query()
             ->publiclyVisible()
             ->where('category_id', $listing->category_id)

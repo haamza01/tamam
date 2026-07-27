@@ -17,12 +17,19 @@ class ListingStatusTest extends TestCase
         $this->assertFalse($status->canTransitionTo(ListingStatus::Paused));
     }
 
-    public function test_archived_can_restore_to_draft(): void
+    public function test_only_published_counts_toward_category_total(): void
+    {
+        $this->assertTrue(ListingStatus::Published->countsTowardCategoryListingCount());
+        $this->assertFalse(ListingStatus::Paused->countsTowardCategoryListingCount());
+        $this->assertFalse(ListingStatus::Draft->countsTowardCategoryListingCount());
+    }
+
+    public function test_archived_can_restore_to_draft_but_not_publish_directly(): void
     {
         $status = ListingStatus::Archived;
 
         $this->assertTrue($status->canTransitionTo(ListingStatus::Draft));
-        $this->assertTrue($status->canTransitionTo(ListingStatus::Published));
+        $this->assertFalse($status->canTransitionTo(ListingStatus::Published));
         $this->assertTrue($status->canTransitionTo(ListingStatus::Deleted));
     }
 }

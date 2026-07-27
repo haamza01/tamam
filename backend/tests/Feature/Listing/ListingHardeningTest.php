@@ -8,7 +8,9 @@ use App\Application\Platform\PlatformSettingsService;
 use App\Domain\Listing\Enums\ListingStatus;
 use App\Models\Category;
 use App\Models\Listing;
+use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 
 class ListingHardeningTest extends ListingTestCase
 {
@@ -315,5 +317,76 @@ class ListingHardeningTest extends ListingTestCase
         $this->withApiToken($token)->deleteJson("/api/v1/listings/{$listing->id}")->assertOk();
 
         $this->assertSame(0, $category->fresh()->listing_count);
+    }
+
+    public function test_category_api_reconciles_listing_count_for_expired_published_listings(): void
+    {
+        $listing = $this->createPublishedListing();
+        $category = Category::query()->findOrFail($listing->category_id);
+
+        $this->assertSame(1, $category->fresh()->listing_count);
+
+        $listing->forceFill([
+            'published_at' => now()->subDays(31),
+            'expires_at' => now()->subDay(),
+        ])->save();
+
+        $this->getJson('/api/v1/categories?locale=en')
+            ->assertOk();
+
+        $this->assertSame(0, $category->fresh()->listing_count);
+        $this->assertSame(ListingStatus::Expired, $listing->fresh()->status);
+    }
+
+    public function test_public_listing_index_reconciles_expired_listings_before_query(): void
+    {
+        $listing = $this->createPublishedListing();
+        $listing->forceFill([
+            'published_at' => now()->subDays(31),
+            'expires_at' => now()->subDay(),
+        ])->save();
+
+        $this->getJson('/api/v1/listings')
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 0);
+
+        $this->assertSame(ListingStatus::Expired, $listing->fresh()->status);
+    }
+
+    public function test_archived_listing_cannot_activate_directly_to_published(): void
+    {
+        $listing = $this->createPublishedListing();
+        $token = $this->authenticate($listing->user);
+
+        $this->withApiToken($token)->postJson("/api/v1/listings/{$listing->id}/archive")->assertOk();
+
+        $this->withApiToken($token)
+            ->postJson("/api/v1/listings/{$listing->id}/activate")
+            ->assertStatus(409)
+            ->assertJsonPath('errors.listing.0', 'listing.invalid_transition');
+    }
+
+    public function test_archived_listing_republishes_through_restore_and_submit(): void
+    {
+        $listing = $this->createPublishedListing();
+        $token = $this->authenticate($listing->user);
+        $moderator = User::factory()->create(['password' => Hash::make('Password123!'), 'phone_verified_at' => now()]);
+        $moderator->assignRole('moderator');
+
+        $this->withApiToken($token)->postJson("/api/v1/listings/{$listing->id}/archive")->assertOk();
+        $this->withApiToken($token)->postJson("/api/v1/listings/{$listing->id}/restore")->assertOk()
+            ->assertJsonPath('data.listing.status', 'draft');
+
+        $this->withApiToken($token)->postJson("/api/v1/listings/{$listing->id}/submit")->assertOk()
+            ->assertJsonPath('data.listing.status', 'pending_review');
+
+        app(ListingStateMachine::class)->approve(Listing::query()->findOrFail($listing->id), $moderator);
+
+        $this->assertSame(ListingStatus::Published, $listing->fresh()->status);
+    }
+
+    public function test_featured_listings_route_is_not_registered_in_phase_1e(): void
+    {
+        $this->getJson('/api/v1/listings/featured')->assertNotFound();
     }
 }
