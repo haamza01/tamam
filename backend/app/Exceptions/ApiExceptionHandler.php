@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Domain\Auth\Exceptions\AuthException;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -23,6 +24,11 @@ class ApiExceptionHandler
         }
 
         return match (true) {
+            $exception instanceof AuthException => ApiResponse::error(
+                message: $exception->getMessage(),
+                status: $exception->status(),
+                errors: $exception->errors(),
+            ),
             $exception instanceof ValidationException => self::renderValidationException($exception),
             $exception instanceof NotFoundHttpException => ApiResponse::error(
                 message: 'The requested resource was not found.',

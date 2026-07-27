@@ -10,6 +10,7 @@ use App\Domain\User\Enums\VerificationLevel;
 use App\Models\Concerns\HasRoles;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -78,5 +79,10 @@ class User extends Authenticatable implements JWTSubject
     public function isActiveAccount(): bool
     {
         return in_array($this->status, [AccountStatus::Pending, AccountStatus::Active, AccountStatus::Suspended], true);
+    }
+
+    public function refreshTokens(): HasMany
+    {
+        return $this->hasMany(RefreshToken::class);
     }
 }

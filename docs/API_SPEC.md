@@ -85,17 +85,32 @@ Authentication uses **JWT access tokens** with **refresh tokens** and secure tok
 
 Rules:
 
-- Access tokens are short-lived.
-- Refresh tokens are long-lived and stored server-side (hashed).
-- Refresh rotates the refresh token on each use.
-- All active sessions are revoked after password reset, email change, phone change, or other critical account changes.
-- See [ADR-001](./adr/001-authentication-jwt-refresh.md).
+- Access tokens are short-lived (default 60 minutes, `JWT_TTL`) and returned in the JSON body only — never stored in `localStorage` by the backend; clients should keep them in memory.
+- Refresh tokens are long-lived (default 14 days, `JWT_REFRESH_TTL_DAYS`) and stored server-side as SHA-256 hashes in `refresh_tokens`.
+- The raw refresh token is sent only in the `tamam_refresh_token` httpOnly cookie (path `/api/v1/auth`, Secure in production).
+- `POST /auth/refresh` requires the CSRF double-submit pattern: `tamam_auth_csrf` cookie plus matching `X-Auth-CSRF` header.
+- Refresh rotates the refresh token on each successful use; reuse of a revoked token revokes all sessions for that user.
+- All active refresh tokens are revoked after password reset or logout-all.
+- Phone OTP is used for phone verification and password reset (not email).
+- See [ADR-001](./adr/001-authentication-jwt-refresh.md) and [PHASE_1B.md](./PHASE_1B.md).
+
+## Rate limits
+
+| Endpoint group | Limit |
+|----------------|-------|
+| register, login | 5 requests/minute per IP |
+| refresh | 20 requests/minute per IP |
+| forgot/reset password | 3 requests/hour per IP + identifier |
+| verify-phone | 10 requests/minute per user |
+| resend-phone-code | 3 requests/hour per user |
+
+Rate-limited responses use HTTP 429 with the unified error envelope.
 
 POST
 
 /auth/register
 
-Register new account
+Register new individual user (`full_name`, `phone`, optional `email`, `password`, `password_confirmation`). Assigns `user` role only.
 
 ---
 
@@ -103,7 +118,7 @@ POST
 
 /auth/login
 
-User login
+User login with `identifier` (phone or email) and `password`. Returns access token JSON and sets refresh + CSRF cookies.
 
 ---
 
@@ -111,7 +126,15 @@ POST
 
 /auth/logout
 
-Logout current user (revokes current refresh token)
+Logout current user (revokes current refresh token). Requires Bearer JWT.
+
+---
+
+POST
+
+/auth/logout-all
+
+Revoke all refresh tokens for the authenticated user. Requires Bearer JWT.
 
 ---
 
@@ -119,7 +142,7 @@ POST
 
 /auth/refresh
 
-Refresh access token (rotates refresh token)
+Refresh access token (rotates refresh token). Requires refresh cookie + CSRF cookie/header. No Bearer token.
 
 ---
 
@@ -127,7 +150,7 @@ POST
 
 /auth/forgot-password
 
-Send reset password email
+Request password-reset OTP. Always returns the same success message whether or not the account exists.
 
 ---
 
@@ -135,7 +158,7 @@ POST
 
 /auth/reset-password
 
-Reset password (revokes all active sessions)
+Verify OTP and set a new password (revokes all active refresh tokens).
 
 ---
 
@@ -143,7 +166,7 @@ POST
 
 /auth/verify-phone
 
-Verify phone number
+Verify phone number with OTP. Sets `phone_verified_at`. Requires Bearer JWT.
 
 ---
 
@@ -151,15 +174,7 @@ POST
 
 /auth/resend-phone-code
 
-Resend phone OTP
-
----
-
-POST
-
-/auth/verify-email
-
-Verify email address
+Resend phone verification OTP. Requires Bearer JWT. Subject to cooldown.
 
 ---
 
@@ -167,9 +182,17 @@ GET
 
 /auth/me
 
-Get current authenticated user summary (session check)
+Get current authenticated user summary (session check). Requires Bearer JWT.
 
-Requires authentication
+---
+
+**Deferred (not Phase 1B):**
+
+POST
+
+/auth/verify-email
+
+Verify email address
 
 ---
 
