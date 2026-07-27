@@ -372,7 +372,7 @@ GET
 
 /categories
 
-Get all categories
+Get all active categories (flat list). Supports `?locale=ar|en` or `Accept-Language`.
 
 ---
 
@@ -380,15 +380,15 @@ GET
 
 /categories/tree
 
-Get category tree
+Get active category tree with nested children.
 
 ---
 
 GET
 
-/categories/{id}
+/categories/{slug}
 
-Get category
+Get a single active category by slug.
 
 ---
 
@@ -396,7 +396,25 @@ GET
 
 /categories/{id}/attributes
 
-Dynamic fields
+Dynamic fields (Phase 1E+)
+
+---
+
+# Locations
+
+GET
+
+/locations
+
+Get all active locations (flat countries, cities, districts). Supports `?locale=ar|en` or `Accept-Language`.
+
+---
+
+GET
+
+/locations/tree
+
+Get nested location tree (country → city → district).
 
 ---
 

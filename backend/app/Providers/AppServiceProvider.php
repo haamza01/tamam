@@ -11,13 +11,24 @@ use App\Application\Auth\PasswordResetService;
 use App\Application\Auth\PhoneNormalizer;
 use App\Application\Auth\PhoneVerificationService;
 use App\Application\Auth\RefreshTokenService;
+use App\Application\Catalog\CatalogCacheService;
+use App\Application\Category\CategoryHierarchyValidator;
+use App\Application\Category\CategoryService;
+use App\Application\Location\LocationService;
 use App\Application\Moderation\ProhibitedWordsChecker;
 use App\Application\Platform\PlatformSettingsService;
 use App\Application\Profile\AvatarStorageService;
 use App\Application\Profile\ProfileAuditService;
 use App\Application\Profile\ProfileService;
+use App\Application\Shared\LocaleResolver;
 use App\Domain\Auth\Contracts\OtpProviderInterface;
 use App\Infrastructure\Auth\LogOtpProvider;
+use App\Models\Category;
+use App\Models\City;
+use App\Models\Country;
+use App\Models\District;
+use App\Observers\CategoryObserver;
+use App\Observers\LocationObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -44,6 +55,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AvatarStorageService::class);
         $this->app->singleton(ProfileAuditService::class);
 
+        $this->app->singleton(CatalogCacheService::class);
+        $this->app->singleton(LocaleResolver::class);
+        $this->app->singleton(CategoryHierarchyValidator::class);
+        $this->app->singleton(CategoryService::class);
+        $this->app->singleton(LocationService::class);
+
         $this->app->bind(OtpProviderInterface::class, function (): OtpProviderInterface {
             $driver = (string) config('otp.driver');
 
@@ -69,5 +86,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth-otp-resend', fn (Request $request) => Limit::perHour(3)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('profile-update', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('profile-avatar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
+
+        Category::observe(CategoryObserver::class);
+        Country::observe(LocationObserver::class);
+        City::observe(LocationObserver::class);
+        District::observe(LocationObserver::class);
     }
 }

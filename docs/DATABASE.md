@@ -267,11 +267,34 @@ Countries.
 
 Fields
 
-- id
-- name
-- code
+- id (uuid)
+- code (unique, e.g. QA)
+- slug (unique)
+- sort_order
+- is_active
 - created_at
 - updated_at
+
+Notes
+
+- Localized names are stored in `country_translations`.
+
+---
+
+## Country Translations
+
+Fields
+
+- id (uuid)
+- country_id
+- locale (ar, en)
+- name
+- created_at
+- updated_at
+
+Unique
+
+- country_id + locale
 
 ---
 
@@ -281,12 +304,38 @@ Cities.
 
 Fields
 
-- id
+- id (uuid)
 - country_id
-- name
 - slug
+- sort_order
+- is_active
 - created_at
 - updated_at
+
+Unique
+
+- country_id + slug
+
+Notes
+
+- Localized names are stored in `city_translations`.
+
+---
+
+## City Translations
+
+Fields
+
+- id (uuid)
+- city_id
+- locale (ar, en)
+- name
+- created_at
+- updated_at
+
+Unique
+
+- city_id + locale
 
 ---
 
@@ -296,12 +345,38 @@ Optional districts within cities (Qatar launch locations).
 
 Fields
 
-- id
+- id (uuid)
 - city_id
-- name
 - slug
+- sort_order
+- is_active
 - created_at
 - updated_at
+
+Unique
+
+- city_id + slug
+
+Notes
+
+- Localized names are stored in `district_translations`.
+
+---
+
+## District Translations
+
+Fields
+
+- id (uuid)
+- district_id
+- locale (ar, en)
+- name
+- created_at
+- updated_at
+
+Unique
+
+- district_id + locale
 
 ---
 
@@ -325,7 +400,7 @@ Fields
 - updated_at
 - deleted_at
 
-Supports unlimited nesting.
+Supports hierarchical nesting up to `category_max_depth` (default 3, configurable in platform settings).
 
 Notes
 

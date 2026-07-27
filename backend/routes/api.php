@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
@@ -30,5 +32,16 @@ Route::prefix('v1')->group(function (): void {
         Route::middleware('throttle:profile-update')->patch('/', [ProfileController::class, 'update']);
         Route::middleware('throttle:profile-avatar')->post('/avatar', [ProfileController::class, 'uploadAvatar']);
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar']);
+    });
+
+    Route::prefix('categories')->group(function (): void {
+        Route::get('/', [CategoryController::class, 'index']);
+        Route::get('/tree', [CategoryController::class, 'tree']);
+        Route::get('/{slug}', [CategoryController::class, 'show']);
+    });
+
+    Route::prefix('locations')->group(function (): void {
+        Route::get('/', [LocationController::class, 'index']);
+        Route::get('/tree', [LocationController::class, 'tree']);
     });
 });
