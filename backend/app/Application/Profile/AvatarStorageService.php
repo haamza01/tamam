@@ -12,6 +12,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AvatarStorageService
 {
+    /** @var list<string> */
+    private const BLOCKED_EXTENSIONS = ['svg', 'gif', 'bmp', 'ico', 'avif'];
+
     public function resolveUrl(?string $path): string
     {
         if ($path === null || $path === '') {
@@ -22,7 +25,14 @@ class AvatarStorageService
             return $path;
         }
 
-        return Storage::disk($this->disk())->url($path);
+        $normalizedPath = str_replace('\\', '/', ltrim($path, '/'));
+        $baseUrl = rtrim((string) config('filesystems.disks.public_assets.url', ''), '/');
+
+        if ($baseUrl !== '') {
+            return $baseUrl.'/'.$normalizedPath;
+        }
+
+        return str_replace('\\', '/', Storage::disk($this->disk())->url($normalizedPath));
     }
 
     public function defaultUrl(): string
@@ -62,18 +72,27 @@ class AvatarStorageService
     public function replace(User $user, UploadedFile $file): User
     {
         $previousPath = $user->avatar;
+        $newPath = null;
 
-        return DB::transaction(function () use ($user, $file, $previousPath): User {
-            $newPath = $this->store($user, $file);
+        try {
+            return DB::transaction(function () use ($user, $file, $previousPath, &$newPath): User {
+                $newPath = $this->store($user, $file);
 
-            $user->forceFill(['avatar' => $newPath])->save();
+                $user->forceFill(['avatar' => $newPath])->save();
 
-            if ($previousPath !== null && $previousPath !== '' && $previousPath !== $newPath) {
-                $this->deleteObject($previousPath);
+                if ($previousPath !== null && $previousPath !== '' && $previousPath !== $newPath) {
+                    $this->deleteObject($previousPath, $user);
+                }
+
+                return $user->fresh();
+            });
+        } catch (\Throwable $exception) {
+            if ($newPath !== null) {
+                $this->deleteObject($newPath, $user);
             }
 
-            return $user->fresh();
-        });
+            throw $exception;
+        }
     }
 
     public function delete(User $user): User
@@ -81,7 +100,7 @@ class AvatarStorageService
         $previousPath = $user->avatar;
 
         if ($previousPath !== null && $previousPath !== '') {
-            $this->deleteObject($previousPath);
+            $this->deleteObject($previousPath, $user);
         }
 
         $user->forceFill(['avatar' => null])->save();
@@ -111,7 +130,27 @@ class AvatarStorageService
             );
         }
 
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        if (in_array($extension, self::BLOCKED_EXTENSIONS, true)) {
+            throw new ProfileException(
+                errorCode: 'profile.avatar_invalid_type',
+                message: 'Validation failed.',
+                status: Response::HTTP_UNPROCESSABLE_ENTITY,
+                errors: ['avatar' => ['profile.avatar_invalid_type']],
+            );
+        }
+
         $detectedMime = $this->detectMimeType($file);
+
+        if (str_contains($detectedMime, 'svg') || str_contains($detectedMime, 'gif')) {
+            throw new ProfileException(
+                errorCode: 'profile.avatar_invalid_type',
+                message: 'Validation failed.',
+                status: Response::HTTP_UNPROCESSABLE_ENTITY,
+                errors: ['avatar' => ['profile.avatar_invalid_type']],
+            );
+        }
 
         if (! in_array($detectedMime, config('media.avatar.allowed_mimes'), true)) {
             throw new ProfileException(
@@ -121,8 +160,6 @@ class AvatarStorageService
                 errors: ['avatar' => ['profile.avatar_invalid_type']],
             );
         }
-
-        $extension = strtolower($file->getClientOriginalExtension());
 
         if (! in_array($extension, config('media.avatar.allowed_extensions'), true)) {
             throw new ProfileException(
@@ -190,13 +227,30 @@ class AvatarStorageService
         }
     }
 
-    private function deleteObject(string $path): void
+    private function deleteObject(string $path, User $user): void
     {
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             return;
         }
 
+        if (! $this->isOwnedAvatarPath($path, $user)) {
+            return;
+        }
+
         Storage::disk($this->disk())->delete($path);
+    }
+
+    private function isOwnedAvatarPath(string $path, User $user): bool
+    {
+        $normalizedPath = str_replace('\\', '/', ltrim($path, '/'));
+        $prefix = trim((string) config('media.avatar.path_prefix'), '/');
+        $expectedPrefix = $prefix.'/'.$user->id.'/';
+
+        if (str_contains($normalizedPath, '..')) {
+            return false;
+        }
+
+        return str_starts_with($normalizedPath, $expectedPrefix);
     }
 
     private function disk(): string

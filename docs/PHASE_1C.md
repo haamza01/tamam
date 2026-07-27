@@ -44,18 +44,46 @@ All endpoints return the authenticated user's own profile only.
 - `country_id`, `city_id` (locations API deferred to Phase 1D)
 - Roles, permissions, and audit metadata
 
+## Default avatar asset
+
+- Static file: `frontend/public/images/default-avatar.svg`
+- API fallback URL: `/images/default-avatar.svg` (served by the frontend at `http://localhost:3000/images/default-avatar.svg`)
+- Generic silhouette SVG with no user-specific data
+
+## Phone visibility
+
+- `GET /api/v1/profile` returns the authenticated user's **full** E.164 phone number
+- `AuthUserResource` (session check) continues to mask phone for lightweight auth responses
+- Public seller profiles remain **deferred**; a separate public resource will mask phone/email per technical design §971/§981
+
+## MinIO / public assets setup
+
+| Environment | Bucket creation | Public access |
+|-------------|-----------------|---------------|
+| Local Docker | `php artisan storage:ensure-public-bucket` on backend startup (`STORAGE_PROVISION_BUCKETS=true`) | Read-only policy scoped to `avatars/*` only |
+| Testing | Skipped (`PUBLIC_ASSETS_DRIVER=local`, fake disk) | N/A |
+| Production | **Not automatic** unless `STORAGE_PROVISION_BUCKETS=true` | Configure bucket/policy in infrastructure |
+
+**Local env vars:**
+
+- `AWS_ENDPOINT=http://minio:9000` — internal Docker hostname for API → MinIO writes
+- `PUBLIC_ASSETS_URL=http://localhost:9000/tamam-public` — client-facing URLs returned by the API
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — MinIO root credentials in Docker Compose
+
+The bucket policy allows anonymous `GetObject` only under `avatars/*`. Listing images and private documents remain out of scope for this public policy.
+
 ## Avatar rules
 
 | Setting | Value |
 |---------|-------|
 | Max size | 5 MB (`AVATAR_MAX_KB=5120`) |
-| Allowed types | JPEG, PNG, WebP |
+| Allowed types | JPEG, PNG, WebP (SVG/GIF explicitly rejected) |
 | Storage disk | `public_assets` (MinIO/S3 in dev/prod, local in tests) |
 | Object key pattern | `avatars/{user_id}/{uuid}.{ext}` |
 | Default fallback | `AVATAR_DEFAULT_URL` (`/images/default-avatar.svg`) |
 | Processing | None in Phase 1C (no Intervention Image; listing resize deferred to Phase 1F) |
 
-Upload flow stores the new object first, updates the database, then deletes the previous avatar. Failed storage does not remove the existing avatar.
+Upload flow stores the new object first, updates the database, then deletes the previous avatar. Failed storage or failed DB save cleans up the newly uploaded object. Deletes only remove objects under `avatars/{user_id}/`.
 
 ## Profile error codes
 
