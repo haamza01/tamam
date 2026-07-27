@@ -1,0 +1,32 @@
+{
+  "common": {
+    "brand": "Tamam",
+    "tagline": "Qatar's trusted marketplace",
+    "foundationNotice": "Foundation placeholder — Phase 0D shell only.",
+    "searchPlaceholder": "Search cars, property, jobs, services...",
+    "categoriesTitle": "Categories",
+    "categoriesPlaceholder": "Category browsing will appear here in a later phase.",
+    "featuredTitle": "Featured listings",
+    "featuredPlaceholder": "Featured listings will appear here in a later phase.",
+    "language": "Language",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "loading": "Loading...",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "The page you requested does not exist.",
+    "notFoundAction": "Back to homepage",
+    "errorTitle": "Something went wrong",
+    "errorDescription": "An unexpected error occurred. Please try again.",
+    "errorAction": "Try again"
+  },
+  "home": {
+    "intro": "Buy, sell, and discover listings across Qatar in a simple, trusted marketplace experience."
+  },
+  "categories": {
+    "cars": "Cars",
+    "realEstate": "Real Estate",
+    "jobs": "Jobs",
+    "services": "Services",
+    "electronics": "Electronics"
+  }
+}

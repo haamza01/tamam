@@ -1,0 +1,32 @@
+{
+  "common": {
+    "brand": "تمام",
+    "tagline": "سوق قطر الموثوق",
+    "foundationNotice": "Placeholder — Phase 0D shell only.",
+    "searchPlaceholder": "ابحث عن سيارات، عقارات، وظائف، خدمات...",
+    "categoriesTitle": "الفئات",
+    "categoriesPlaceholder": "ستظهر الفئات هنا في مرحلة لاحقة.",
+    "featuredTitle": "إعلانات مميزة",
+    "featuredPlaceholder": "ستظهر الإعلانات المميزة هنا في مرحلة لاحقة.",
+    "language": "اللغة",
+    "themeLight": "فاتح",
+    "themeDark": "داكن",
+    "loading": "جاري التحميل...",
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundDescription": "الصفحة التي طلبتها غير موجودة.",
+    "notFoundAction": "العودة إلى الرئيسية",
+    "errorTitle": "حدث خطأ",
+    "errorDescription": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
+    "errorAction": "إعادة المحاولة"
+  },
+  "home": {
+    "intro": "اشترِ، بِع، واكتشف الإعلانات في قطر عبر تجربة سوق بسيطة وموثوقة."
+  },
+  "categories": {
+    "cars": "سيارات",
+    "realEstate": "عقارات",
+    "jobs": "وظائف",
+    "services": "خدمات",
+    "electronics": "إلكترونيات"
+  }
+}

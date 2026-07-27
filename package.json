@@ -1,0 +1,19 @@
+{
+  "name": "tamam",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "pnpm --filter @tamam/frontend dev",
+    "dev:admin": "pnpm --filter @tamam/admin dev --port 3001",
+    "dev:shared": "pnpm --filter @tamam/shared typecheck",
+    "lint": "pnpm --filter @tamam/frontend --filter @tamam/admin lint",
+    "typecheck": "pnpm --filter @tamam/shared --filter @tamam/frontend --filter @tamam/admin typecheck",
+    "build:frontend": "pnpm --filter @tamam/frontend build",
+    "build:admin": "pnpm --filter @tamam/admin build",
+    "build": "pnpm build:frontend && pnpm build:admin"
+  },
+  "engines": {
+    "node": ">=22 <23",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.15.9"
+}
