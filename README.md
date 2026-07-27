@@ -165,7 +165,8 @@ Development is split into reviewable milestones. **Each phase requires approval 
 | **0C** | CI/CD, workspace, scripts, configuration | Complete |
 | **0D** | Health endpoint, API error envelope, i18n shell, placeholder pages | Complete |
 | **0.5** | Phase 1 technical design (implementation blueprint) | Approved |
-| **1+** | Business features (auth, listings, etc.) | Not started |
+| **1A** | Foundation & RBAC (UUID, roles, permissions, platform settings) | Complete |
+| **1B+** | Authentication, listings, and remaining MVP Core | Not started |
 
 ### Approved product decisions
 

@@ -1,11 +1,12 @@
 <?php
 
 use App\Exceptions\ApiExceptionHandler;
+use App\Http\Middleware\EnsureAccountActive;
+use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,9 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('api', [
             ForceJsonResponse::class,
         ]);
+
+        $middleware->alias([
+            'permission' => EnsurePermission::class,
+            'account.active' => EnsureAccountActive::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->render(function (Throwable $exception, $request) {
+        $exceptions->render(function (\Throwable $exception, $request) {
             return ApiExceptionHandler::render($exception, $request);
         });
     })->create();
