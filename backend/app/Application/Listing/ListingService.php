@@ -6,6 +6,7 @@ use App\Application\Audit\AuditLogService;
 use App\Application\Category\CategoryListingCountService;
 use App\Application\Moderation\ProhibitedWordsChecker;
 use App\Application\Platform\PlatformSettingsService;
+use App\Application\Search\PublicListingQueryBuilder;
 use App\Application\Shared\SlugGenerator;
 use App\Domain\Category\Enums\CategoryStatus;
 use App\Domain\Listing\Enums\ListingStatus;
@@ -37,6 +38,7 @@ class ListingService
         private readonly PlatformSettingsService $settings,
         private readonly CategoryListingCountService $listingCounts,
         private readonly AuditLogService $auditLog,
+        private readonly PublicListingQueryBuilder $publicListingQuery,
     ) {}
 
     /**
@@ -241,27 +243,17 @@ class ListingService
     {
         $this->listingExpiry->expireDue();
 
-        $query = Listing::query()
-            ->publiclyVisible()
+        $query = $this->publicListingQuery->base()
             ->with(['category.translations', 'city.translations', 'user', 'images']);
 
-        if (! empty($filters['category_id'])) {
-            $query->where('category_id', $filters['category_id']);
-        }
-
-        if (! empty($filters['city_id'])) {
-            $query->where('city_id', $filters['city_id']);
-        }
+        $this->publicListingQuery->applyFilters($query, [
+            'category_id' => $filters['category_id'] ?? null,
+            'city_id' => $filters['city_id'] ?? null,
+        ]);
 
         $sort = $filters['sort'] ?? 'latest';
-
-        if ($sort === 'price_asc') {
-            $query->orderByRaw('price IS NULL')->orderBy('price');
-        } elseif ($sort === 'price_desc') {
-            $query->orderByRaw('price IS NULL')->orderByDesc('price');
-        } else {
-            $query->orderByDesc('published_at');
-        }
+        $normalizedSort = $sort === 'latest' ? 'newest' : $sort;
+        $this->publicListingQuery->applySorting($query, $normalizedSort);
 
         return $query->paginate((int) ($filters['per_page'] ?? 20));
     }

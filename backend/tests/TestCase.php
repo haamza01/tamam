@@ -87,6 +87,9 @@ abstract class TestCase extends BaseTestCase
             'profile-avatar',
             'listing-write',
             'listing-image',
+            'search',
+            'search-suggestions',
+            'search-popular',
         ] as $limiter) {
             RateLimiter::clear($limiter);
         }

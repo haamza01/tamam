@@ -546,6 +546,7 @@ Fields
 - expires_at
 - published_at
 - sold_at
+- search_vector (tsvector, **Phase 1G** — GENERATED STORED from title + description; GIN index `listings_search_vector_idx`)
 - created_at
 - updated_at
 - deleted_at

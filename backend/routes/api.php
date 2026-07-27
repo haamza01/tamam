@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\ListingController;
 use App\Http\Controllers\Api\V1\ListingImageController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\UserListingController;
 use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
@@ -47,6 +48,12 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('locations')->group(function (): void {
         Route::get('/', [LocationController::class, 'index']);
         Route::get('/tree', [LocationController::class, 'tree']);
+    });
+
+    Route::prefix('search')->group(function (): void {
+        Route::middleware('throttle:search-suggestions')->get('/suggestions', [SearchController::class, 'suggestions']);
+        Route::middleware('throttle:search-popular')->get('/popular', [SearchController::class, 'popular']);
+        Route::middleware('throttle:search')->get('/', [SearchController::class, 'index']);
     });
 
     Route::prefix('listings')->group(function (): void {

@@ -28,6 +28,12 @@ use App\Application\Platform\PlatformSettingsService;
 use App\Application\Profile\AvatarStorageService;
 use App\Application\Profile\ProfileAuditService;
 use App\Application\Profile\ProfileService;
+use App\Application\Search\CategoryDescendantResolver;
+use App\Application\Search\PopularSearchService;
+use App\Application\Search\PublicListingQueryBuilder;
+use App\Application\Search\SearchQueryParser;
+use App\Application\Search\SearchService;
+use App\Application\Search\SearchSuggestionService;
 use App\Application\Shared\LocaleResolver;
 use App\Application\Shared\SlugGenerator;
 use App\Application\Storage\PublicAssetUrlResolver;
@@ -88,6 +94,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ListingStateMachine::class);
         $this->app->singleton(ListingService::class);
 
+        $this->app->singleton(CategoryDescendantResolver::class);
+        $this->app->singleton(PublicListingQueryBuilder::class);
+        $this->app->singleton(SearchQueryParser::class);
+        $this->app->singleton(SearchService::class);
+        $this->app->singleton(SearchSuggestionService::class);
+        $this->app->singleton(PopularSearchService::class);
+
         $this->app->bind(OtpProviderInterface::class, function (): OtpProviderInterface {
             $driver = (string) config('otp.driver');
 
@@ -115,6 +128,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('profile-avatar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('listing-write', fn (Request $request) => Limit::perMinute(20)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('listing-image', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('search', fn (Request $request) => Limit::perMinute((int) config('search.rate_limits.search_per_minute'))->by($request->ip()));
+        RateLimiter::for('search-suggestions', fn (Request $request) => Limit::perMinute((int) config('search.rate_limits.suggestions_per_minute'))->by($request->ip()));
+        RateLimiter::for('search-popular', fn (Request $request) => Limit::perMinute((int) config('search.rate_limits.popular_per_minute'))->by($request->ip()));
 
         Category::observe(CategoryObserver::class);
         CategoryTranslation::observe(CategoryTranslationObserver::class);

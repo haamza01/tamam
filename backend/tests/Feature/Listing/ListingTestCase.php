@@ -11,6 +11,7 @@ use Database\Seeders\CategoryAttributeSeeder;
 use Database\Seeders\CategorySeeder;
 use Database\Seeders\CitySeeder;
 use Database\Seeders\CountrySeeder;
+use Database\Seeders\DistrictSeeder;
 use Database\Seeders\PlatformSettingsSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,6 +35,7 @@ abstract class ListingTestCase extends TestCase
             PlatformSettingsSeeder::class,
             CountrySeeder::class,
             CitySeeder::class,
+            DistrictSeeder::class,
             CategorySeeder::class,
             CategoryAttributeSeeder::class,
         ]);

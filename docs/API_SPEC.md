@@ -640,21 +640,33 @@ Parameters
 
 keyword
 
-category
+category (UUID; alias: category_id; includes subcategories)
 
-city
+city (UUID; alias: city_id)
+
+district (UUID; alias: district_id; requires city)
 
 price_min
 
 price_max
 
+price_type
+
 condition
 
-sort
+sort (relevance, newest, oldest, price_asc, price_desc, most_viewed)
 
 page
 
-limit
+limit (alias: per_page; default 20, max 100)
+
+attr[{slug}] (filterable category attributes; AND semantics)
+
+Notes
+
+- PostgreSQL FTS on title + description (`simple` config)
+- Public published listings only
+- No search event persistence in Phase 1G
 
 ---
 
@@ -662,7 +674,11 @@ GET
 
 /search/suggestions
 
-Autocomplete
+Autocomplete (title prefix + category names)
+
+Parameters
+
+q (or keyword; min 2 chars)
 
 ---
 
@@ -670,7 +686,7 @@ GET
 
 /search/popular
 
-Popular searches
+Popular searches (seeded static terms, cached)
 
 ---
 
