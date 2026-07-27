@@ -35,11 +35,7 @@
 
 ## Dev foundation accounts
 
-| Email | Role | Password (local only) |
-|-------|------|------------------------|
-| super@tamam.local | super_admin | Password123! |
-| admin@tamam.local | admin | Password123! |
-| mod@tamam.local | moderator | Password123! |
+Created only when `APP_ENV` is `local` or `testing`. Passwords are hashed with Laravel's hasher and are not documented here.
 
 ## Verification
 

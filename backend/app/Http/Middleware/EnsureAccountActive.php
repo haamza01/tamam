@@ -20,7 +20,11 @@ class EnsureAccountActive
             abort(Response::HTTP_UNAUTHORIZED);
         }
 
-        if (in_array($user->status, [AccountStatus::Blocked, AccountStatus::Deleted], true)) {
+        if (in_array($user->status, [
+            AccountStatus::Blocked,
+            AccountStatus::Suspended,
+            AccountStatus::Deleted,
+        ], true)) {
             abort(Response::HTTP_FORBIDDEN, 'This account is not allowed to access the platform.');
         }
 

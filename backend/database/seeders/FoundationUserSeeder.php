@@ -13,6 +13,10 @@ class FoundationUserSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment('local', 'testing')) {
+            return;
+        }
+
         $users = [
             [
                 'full_name' => 'Super Admin',
@@ -40,7 +44,7 @@ class FoundationUserSeeder extends Seeder
                 [
                     'full_name' => $definition['full_name'],
                     'phone' => $definition['phone'],
-                    'password' => Hash::make('Password123!'),
+                    'password' => Hash::make('local-foundation-only'),
                     'language' => UserLanguage::Arabic,
                     'status' => AccountStatus::Active,
                     'verification_level' => VerificationLevel::Phone,

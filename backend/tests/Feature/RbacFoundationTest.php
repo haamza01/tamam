@@ -66,4 +66,15 @@ class RbacFoundationTest extends TestCase
         $this->assertFalse($user->can('viewAny', User::class));
         $this->assertTrue($admin->can('viewAny', User::class));
     }
+
+    public function test_factory_user_has_no_privileged_permissions(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+
+        $user = User::factory()->create();
+
+        $this->assertFalse($user->hasPermission('users.view'));
+        $this->assertFalse($user->hasPermission('listings.moderate'));
+        $this->assertFalse($user->hasRole('super_admin'));
+    }
 }

@@ -8,6 +8,7 @@ use App\Application\Platform\PlatformSettingsService;
 use App\Domain\Auth\Contracts\OtpProviderInterface;
 use App\Infrastructure\Auth\LogOtpProvider;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,10 +19,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProhibitedWordsChecker::class);
 
         $this->app->bind(OtpProviderInterface::class, function (): OtpProviderInterface {
-            return match (config('otp.driver')) {
-                'log' => new LogOtpProvider,
-                default => new LogOtpProvider,
-            };
+            $driver = (string) config('otp.driver');
+
+            if ($driver !== 'log') {
+                throw new RuntimeException("Unsupported OTP driver [{$driver}] configured.");
+            }
+
+            if (! app()->environment('local', 'testing')) {
+                throw new RuntimeException('Log OTP provider cannot be configured outside local and testing environments.');
+            }
+
+            return new LogOtpProvider;
         });
     }
 
