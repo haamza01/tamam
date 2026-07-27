@@ -13,6 +13,9 @@ use App\Application\Auth\PhoneVerificationService;
 use App\Application\Auth\RefreshTokenService;
 use App\Application\Moderation\ProhibitedWordsChecker;
 use App\Application\Platform\PlatformSettingsService;
+use App\Application\Profile\AvatarStorageService;
+use App\Application\Profile\ProfileAuditService;
+use App\Application\Profile\ProfileService;
 use App\Domain\Auth\Contracts\OtpProviderInterface;
 use App\Infrastructure\Auth\LogOtpProvider;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -37,6 +40,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(PhoneVerificationService::class);
         $this->app->singleton(PasswordResetService::class);
 
+        $this->app->singleton(ProfileService::class);
+        $this->app->singleton(AvatarStorageService::class);
+        $this->app->singleton(ProfileAuditService::class);
+
         $this->app->bind(OtpProviderInterface::class, function (): OtpProviderInterface {
             $driver = (string) config('otp.driver');
 
@@ -60,5 +67,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth-password', fn (Request $request) => Limit::perHour(3)->by($request->ip().':'.$request->input('identifier', 'unknown')));
         RateLimiter::for('auth-otp', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('auth-otp-resend', fn (Request $request) => Limit::perHour(3)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('profile-update', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('profile-avatar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()));
     }
 }

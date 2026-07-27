@@ -198,7 +198,43 @@ Verify email address
 
 # Users
 
-Authenticated profile and account management use `/users/me/*`.
+Authenticated profile management uses `/profile` (Phase 1C). Legacy `/users/me/*` paths below remain documented for later phases.
+
+## Profile (Phase 1C)
+
+GET
+
+/profile
+
+Get the authenticated user's profile. Requires Bearer JWT and an active account.
+
+---
+
+PATCH
+
+/profile
+
+Partially update permitted profile fields (`full_name`, `email`, `preferred_language`, `username`, `bio`). Phone, status, roles, and other protected fields are rejected. Rate limit: 10 requests/minute per user.
+
+---
+
+POST
+
+/profile/avatar
+
+Upload or replace profile avatar (multipart `avatar` field). Max 5 MB; JPEG, PNG, or WebP only. Rate limit: 5 requests/minute per user.
+
+---
+
+DELETE
+
+/profile/avatar
+
+Remove profile avatar and revert to the default fallback URL.
+
+---
+
+Authenticated account management also uses `/users/me/*` (future phases).
 
 GET
 

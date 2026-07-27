@@ -35,5 +35,7 @@
         <env name="JWT_SECRET" value="testing-secret-key-for-jwt-auth-phase-1a-min-32-chars"/>
         <env name="OTP_DRIVER" value="log"/>
         <env name="AUTH_COOKIE_SECURE" value="false"/>
+        <env name="PUBLIC_ASSETS_DRIVER" value="local"/>
+        <env name="AVATAR_DISK" value="public_assets"/>
     </php>
 </phpunit>

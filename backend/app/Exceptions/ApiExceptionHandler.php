@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use App\Domain\Auth\Exceptions\AuthException;
+use App\Domain\Profile\Exceptions\ProfileException;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -10,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
@@ -25,6 +27,11 @@ class ApiExceptionHandler
 
         return match (true) {
             $exception instanceof AuthException => ApiResponse::error(
+                message: $exception->getMessage(),
+                status: $exception->status(),
+                errors: $exception->errors(),
+            ),
+            $exception instanceof ProfileException => ApiResponse::error(
                 message: $exception->getMessage(),
                 status: $exception->status(),
                 errors: $exception->errors(),
@@ -49,6 +56,10 @@ class ApiExceptionHandler
             $exception instanceof AuthorizationException => ApiResponse::error(
                 message: 'You are not authorized to perform this action.',
                 status: Response::HTTP_FORBIDDEN,
+            ),
+            $exception instanceof HttpException => ApiResponse::error(
+                message: $exception->getMessage() ?: 'Request could not be completed.',
+                status: $exception->getStatusCode(),
             ),
             default => self::renderServerError($exception),
         };
