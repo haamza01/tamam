@@ -6,9 +6,7 @@ use App\Application\Listing\ListingExpiryService;
 use App\Domain\Category\Enums\CategoryStatus;
 use App\Domain\Search\Exceptions\SearchException;
 use App\Models\CategoryTranslation;
-use App\Models\Listing;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class SearchSuggestionService
@@ -16,6 +14,7 @@ class SearchSuggestionService
     public function __construct(
         private readonly ListingExpiryService $listingExpiry,
         private readonly SearchQueryParser $queryParser,
+        private readonly PublicListingQueryBuilder $queryBuilder,
     ) {}
 
     /**
@@ -47,16 +46,7 @@ class SearchSuggestionService
             );
         }
 
-        $cacheKey = 'search:suggestions:'.md5($locale.':'.$prefix);
-
-        /** @var Collection<int, array{type: string, value: string, label: string|null}> $suggestions */
-        $suggestions = Cache::remember(
-            $cacheKey,
-            (int) config('search.suggestions.cache_ttl'),
-            fn (): Collection => $this->buildSuggestions($prefix, $locale, $maxResults),
-        );
-
-        return $suggestions;
+        return $this->buildSuggestions($prefix, $locale, $maxResults);
     }
 
     /**
@@ -64,12 +54,10 @@ class SearchSuggestionService
      */
     private function buildSuggestions(string $prefix, string $locale, int $maxResults): Collection
     {
-        $escapedPrefix = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $prefix);
-        $likePrefix = $escapedPrefix.'%';
+        $likePrefix = $this->escapeLikePrefix($prefix);
 
-        $titleSuggestions = Listing::query()
-            ->publiclyVisible()
-            ->where('title', 'ILIKE', $likePrefix)
+        $titleSuggestions = $this->queryBuilder->base()
+            ->whereRaw('lower(title) LIKE lower(?) || \'%\'', [$likePrefix])
             ->orderBy('title')
             ->limit($maxResults)
             ->pluck('title')
@@ -92,7 +80,7 @@ class SearchSuggestionService
                 ->where('categories.status', CategoryStatus::Active)
                 ->whereNull('categories.deleted_at')
                 ->whereIn('category_translations.locale', [$locale, 'ar', 'en'])
-                ->where('category_translations.name', 'ILIKE', $likePrefix)
+                ->whereRaw('lower(category_translations.name) LIKE lower(?) || \'%\'', [$likePrefix])
                 ->orderBy('category_translations.name')
                 ->limit($remaining)
                 ->pluck('name')
@@ -109,5 +97,10 @@ class SearchSuggestionService
             ->merge($categorySuggestions)
             ->take($maxResults)
             ->values();
+    }
+
+    private function escapeLikePrefix(string $prefix): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $prefix);
     }
 }

@@ -2,11 +2,9 @@
 
 namespace App\Application\Search;
 
-use App\Domain\Category\Enums\AttributeType;
 use App\Domain\Category\Enums\CategoryStatus;
 use App\Domain\Search\Exceptions\SearchException;
 use App\Models\Category;
-use App\Models\CategoryAttribute;
 use App\Models\City;
 use App\Models\District;
 use App\Models\Listing;
@@ -18,6 +16,7 @@ class PublicListingQueryBuilder
 {
     public function __construct(
         private readonly CategoryDescendantResolver $categoryDescendants,
+        private readonly SearchAttributeFilterApplier $attributeFilters,
     ) {}
 
     /**
@@ -33,6 +32,12 @@ class PublicListingQueryBuilder
             })
             ->whereHas('city', function (Builder $query): void {
                 $query->where('is_active', true);
+            })
+            ->where(function (Builder $query): void {
+                $query->whereNull('district_id')
+                    ->orWhereHas('district', function (Builder $districtQuery): void {
+                        $districtQuery->where('is_active', true);
+                    });
             });
     }
 
@@ -42,9 +47,11 @@ class PublicListingQueryBuilder
      */
     public function applyFilters(Builder $query, array $filters): void
     {
+        $categoryScopeIds = null;
+
         if (! empty($filters['category_id'])) {
-            $categoryIds = $this->categoryDescendants->idsIncludingSelf((string) $filters['category_id']);
-            $query->whereIn('category_id', $categoryIds);
+            $categoryScopeIds = $this->categoryDescendants->idsIncludingSelf((string) $filters['category_id']);
+            $query->whereIn('category_id', $categoryScopeIds);
         }
 
         if (! empty($filters['city_id'])) {
@@ -74,18 +81,17 @@ class PublicListingQueryBuilder
         }
 
         if (! empty($filters['attributes']) && is_array($filters['attributes'])) {
-            $this->applyAttributeFilters($query, $filters);
+            $this->attributeFilters->apply($query, $filters, $categoryScopeIds);
         }
     }
 
     /**
      * @param  Builder<Listing>  $query
-     * @param  array<string, mixed>  $filters
      */
-    public function applySorting(Builder $query, string $sort, ?string $tsquery = null): void
+    public function applySorting(Builder $query, string $sort, ?string $keyword = null): void
     {
         match ($sort) {
-            'relevance' => $this->applyRelevanceSort($query, $tsquery),
+            'relevance' => $this->applyRelevanceSort($query, $keyword),
             'oldest' => $query->orderBy('published_at')->orderBy('id'),
             'price_asc' => $query->orderByRaw('price IS NULL')->orderBy('price')->orderByDesc('id'),
             'price_desc' => $query->orderByRaw('price IS NULL')->orderByDesc('price')->orderByDesc('id'),
@@ -94,6 +100,9 @@ class PublicListingQueryBuilder
         };
     }
 
+    /**
+     * @param  array<string, mixed>  $filters
+     */
     public function validateLocationFilters(array $filters): void
     {
         if (! empty($filters['city_id'])) {
@@ -160,88 +169,12 @@ class PublicListingQueryBuilder
 
     /**
      * @param  Builder<Listing>  $query
-     * @param  array<string, mixed>  $filters
      */
-    private function applyAttributeFilters(Builder $query, array $filters): void
+    private function applyRelevanceSort(Builder $query, ?string $keyword): void
     {
-        $attributeFilters = $filters['attributes'];
-
-        if (count($attributeFilters) > 20) {
-            throw new SearchException(
-                errorCode: 'search.too_many_attribute_filters',
-                message: 'Validation failed.',
-                status: Response::HTTP_UNPROCESSABLE_ENTITY,
-                errors: ['attributes' => ['search.too_many_attribute_filters']],
-            );
-        }
-
-        $categoryScopeIds = null;
-
-        if (! empty($filters['category_id'])) {
-            $categoryScopeIds = $this->categoryDescendants->idsIncludingSelf((string) $filters['category_id']);
-        }
-
-        foreach ($attributeFilters as $slug => $value) {
-            if (! is_string($slug) || $slug === '') {
-                continue;
-            }
-
-            $attributeQuery = CategoryAttribute::query()
-                ->where('slug', $slug)
-                ->where('filterable', true);
-
-            if ($categoryScopeIds !== null) {
-                $attributeQuery->whereIn('category_id', $categoryScopeIds);
-            }
-
-            $attribute = $attributeQuery->first();
-
-            if ($attribute === null) {
-                throw new SearchException(
-                    errorCode: 'search.invalid_attribute_filter',
-                    message: 'Validation failed.',
-                    status: Response::HTTP_UNPROCESSABLE_ENTITY,
-                    errors: ["attr.{$slug}" => ['search.invalid_attribute_filter']],
-                );
-            }
-
-            $query->whereExists(function ($subQuery) use ($attribute, $value): void {
-                $subQuery->select(DB::raw('1'))
-                    ->from('listing_attribute_values as lav')
-                    ->whereColumn('lav.listing_id', 'listings.id')
-                    ->where('lav.category_attribute_id', $attribute->id)
-                    ->where(function ($valueQuery) use ($attribute, $value): void {
-                        $this->applyAttributeValueMatch($valueQuery, $attribute, $value);
-                    });
-            });
-        }
-    }
-
-    /**
-     * @param  Builder<\Illuminate\Database\Query\Builder>  $valueQuery
-     */
-    private function applyAttributeValueMatch($valueQuery, CategoryAttribute $attribute, mixed $value): void
-    {
-        match ($attribute->type) {
-            AttributeType::Boolean => $valueQuery->where('lav.value_boolean', filter_var($value, FILTER_VALIDATE_BOOLEAN)),
-            AttributeType::Number, AttributeType::Price => $valueQuery->where('lav.value_number', (string) $value),
-            AttributeType::Date => $valueQuery->whereDate('lav.value_date', (string) $value),
-            AttributeType::MultiSelect, AttributeType::Checkbox => $valueQuery->whereJsonContains('lav.value_json', $value),
-            default => $valueQuery->where('lav.value_text', (string) $value),
-        };
-    }
-
-    /**
-     * @param  Builder<Listing>  $query
-     */
-    private function applyRelevanceSort(Builder $query, ?string $tsquery): void
-    {
-        if ($tsquery !== null && DB::connection()->getDriverName() === 'pgsql') {
+        if ($keyword !== null && DB::connection()->getDriverName() === 'pgsql') {
             $config = (string) config('search.fts_config', 'simple');
-            $query->orderByRaw(
-                'ts_rank_cd(search_vector, to_tsquery(?, ?), 32) DESC',
-                [$config, $tsquery],
-            );
+            $query->orderByRaw(SearchSql::FTS_RANK, [$config, $keyword]);
         }
 
         $query->orderByDesc('published_at')->orderByDesc('created_at')->orderByDesc('id');

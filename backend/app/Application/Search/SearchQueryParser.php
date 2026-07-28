@@ -9,18 +9,18 @@ use Symfony\Component\HttpFoundation\Response;
 class SearchQueryParser
 {
     /**
-     * @return array{keyword: string|null, tsquery: string|null}
+     * @return array{keyword: string|null, matchable: bool}
      */
     public function parse(?string $rawKeyword): array
     {
         if ($rawKeyword === null || trim($rawKeyword) === '') {
-            return ['keyword' => null, 'tsquery' => null];
+            return ['keyword' => null, 'matchable' => false];
         }
 
         $keyword = $this->normalize($rawKeyword);
 
         if ($keyword === '') {
-            return ['keyword' => null, 'tsquery' => null];
+            return ['keyword' => null, 'matchable' => false];
         }
 
         $minLength = (int) config('search.keyword.min_length');
@@ -57,21 +57,18 @@ class SearchQueryParser
         }
 
         if (DB::connection()->getDriverName() !== 'pgsql') {
-            return ['keyword' => $keyword, 'tsquery' => null];
+            return ['keyword' => $keyword, 'matchable' => $keyword !== ''];
         }
 
-        $tsquery = DB::selectOne(
-            'SELECT plainto_tsquery(?, ?) AS tsquery',
+        $matchable = DB::selectOne(
+            "SELECT plainto_tsquery(?, ?) <> ''::tsquery AS matchable",
             [(string) config('search.fts_config', 'simple'), $keyword],
         );
 
-        $tsqueryString = $tsquery?->tsquery ?? '';
-
-        if ($tsqueryString === '') {
-            return ['keyword' => $keyword, 'tsquery' => null];
-        }
-
-        return ['keyword' => $keyword, 'tsquery' => (string) $tsqueryString];
+        return [
+            'keyword' => $keyword,
+            'matchable' => (bool) ($matchable?->matchable ?? false),
+        ];
     }
 
     public function normalize(?string $value): string

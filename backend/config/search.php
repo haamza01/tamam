@@ -17,8 +17,9 @@ return [
     'suggestions' => [
         'min_prefix_length' => (int) env('SEARCH_SUGGESTION_MIN_PREFIX', 2),
         'max_results' => (int) env('SEARCH_SUGGESTION_MAX_RESULTS', 10),
-        'cache_ttl' => (int) env('SEARCH_SUGGESTION_CACHE_TTL', 300),
     ],
+
+    'max_attribute_filters' => (int) env('SEARCH_MAX_ATTRIBUTE_FILTERS', 20),
 
     'popular' => [
         'max_results' => (int) env('SEARCH_POPULAR_MAX_RESULTS', 10),

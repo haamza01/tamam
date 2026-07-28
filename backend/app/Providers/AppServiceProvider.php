@@ -95,6 +95,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ListingService::class);
 
         $this->app->singleton(CategoryDescendantResolver::class);
+        $this->app->singleton(SearchAttributeFilterApplier::class);
         $this->app->singleton(PublicListingQueryBuilder::class);
         $this->app->singleton(SearchQueryParser::class);
         $this->app->singleton(SearchService::class);

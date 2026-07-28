@@ -40,7 +40,8 @@ class SearchService
         $this->queryBuilder->validateLocationFilters($filters);
 
         $parsed = $this->queryParser->parse($filters['keyword'] ?? null);
-        $sort = $this->resolveSort((string) ($filters['sort'] ?? ''), $parsed['tsquery'] !== null);
+        $hasKeywordMatch = $parsed['keyword'] !== null && $parsed['matchable'];
+        $sort = $this->resolveSort((string) ($filters['sort'] ?? ''), $hasKeywordMatch);
         $perPage = min(
             max(1, (int) ($filters['per_page'] ?? config('search.pagination.default'))),
             (int) config('search.pagination.max'),
@@ -49,9 +50,9 @@ class SearchService
         $query = $this->queryBuilder->base()
             ->with(['category.translations', 'city.translations', 'user', 'images']);
 
-        if ($parsed['tsquery'] !== null && DB::connection()->getDriverName() === 'pgsql') {
+        if ($hasKeywordMatch && DB::connection()->getDriverName() === 'pgsql') {
             $config = (string) config('search.fts_config', 'simple');
-            $query->whereRaw('search_vector @@ to_tsquery(?, ?)', [$config, $parsed['tsquery']]);
+            $query->whereRaw(SearchSql::FTS_MATCH, [$config, $parsed['keyword']]);
         } elseif ($parsed['keyword'] !== null && DB::connection()->getDriverName() !== 'pgsql') {
             $query->where(function (Builder $builder) use ($parsed): void {
                 $like = '%'.$parsed['keyword'].'%';
@@ -61,21 +62,17 @@ class SearchService
         }
 
         $this->queryBuilder->applyFilters($query, $filters);
-        $this->queryBuilder->applySorting($query, $sort, $parsed['tsquery']);
+        $this->queryBuilder->applySorting($query, $sort, $hasKeywordMatch ? $parsed['keyword'] : null);
 
         return $query->paginate($perPage, ['listings.*'], 'page', max(1, (int) ($filters['page'] ?? 1)));
     }
 
     private function resolveSort(string $sort, bool $hasKeyword): string
     {
-        $allowed = ['relevance', 'newest', 'oldest', 'price_asc', 'price_desc', 'most_viewed', 'latest'];
+        $allowed = ['relevance', 'newest', 'oldest', 'price_asc', 'price_desc', 'most_viewed'];
 
         if ($sort === '' || ! in_array($sort, $allowed, true)) {
             return $hasKeyword ? 'relevance' : 'newest';
-        }
-
-        if ($sort === 'latest') {
-            return 'newest';
         }
 
         if ($sort === 'relevance' && ! $hasKeyword) {

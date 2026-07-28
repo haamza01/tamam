@@ -660,7 +660,7 @@ page
 
 limit (alias: per_page; default 20, max 100)
 
-attr[{slug}] (filterable category attributes; AND semantics)
+attr[{slug}] (filterable category attributes; AND semantics; max 20)
 
 Notes
 
