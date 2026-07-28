@@ -24,17 +24,26 @@ class PublicListingQueryBuilder
      */
     public function base(): Builder
     {
-        return Listing::query()
+        return $this->applyPublicVisibility(Listing::query());
+    }
+
+    /**
+     * @param  Builder<Listing>  $query
+     * @return Builder<Listing>
+     */
+    public function applyPublicVisibility(Builder $query): Builder
+    {
+        return $query
             ->publiclyVisible()
-            ->whereHas('category', function (Builder $query): void {
-                $query->where('status', CategoryStatus::Active)
+            ->whereHas('category', function (Builder $categoryQuery): void {
+                $categoryQuery->where('status', CategoryStatus::Active)
                     ->whereNull('deleted_at');
             })
-            ->whereHas('city', function (Builder $query): void {
-                $query->where('is_active', true);
+            ->whereHas('city', function (Builder $cityQuery): void {
+                $cityQuery->where('is_active', true);
             })
-            ->where(function (Builder $query): void {
-                $query->whereNull('district_id')
+            ->where(function (Builder $districtScope): void {
+                $districtScope->whereNull('district_id')
                     ->orWhereHas('district', function (Builder $districtQuery): void {
                         $districtQuery->where('is_active', true);
                     });

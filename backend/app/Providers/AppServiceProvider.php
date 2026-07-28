@@ -13,8 +13,9 @@ use App\Application\Auth\PhoneVerificationService;
 use App\Application\Auth\RefreshTokenService;
 use App\Application\Catalog\CatalogCacheService;
 use App\Application\Category\CategoryHierarchyValidator;
-use App\Application\Category\CategoryListingCountService;
 use App\Application\Category\CategoryService;
+use App\Application\Favorite\FavoriteService;
+use App\Application\Favorite\ListingStatisticsCounter;
 use App\Application\Listing\ListingAttributeValidator;
 use App\Application\Listing\ListingImageProcessor;
 use App\Application\Listing\ListingImageService;
@@ -102,6 +103,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SearchSuggestionService::class);
         $this->app->singleton(PopularSearchService::class);
 
+        $this->app->singleton(ListingStatisticsCounter::class);
+        $this->app->singleton(FavoriteService::class);
+
         $this->app->bind(OtpProviderInterface::class, function (): OtpProviderInterface {
             $driver = (string) config('otp.driver');
 
@@ -132,6 +136,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('search', fn (Request $request) => Limit::perMinute((int) config('search.rate_limits.search_per_minute'))->by($request->ip()));
         RateLimiter::for('search-suggestions', fn (Request $request) => Limit::perMinute((int) config('search.rate_limits.suggestions_per_minute'))->by($request->ip()));
         RateLimiter::for('search-popular', fn (Request $request) => Limit::perMinute((int) config('search.rate_limits.popular_per_minute'))->by($request->ip()));
+        RateLimiter::for('favorite', fn (Request $request) => Limit::perMinute(60)->by($request->user()?->id ?: $request->ip()));
 
         Category::observe(CategoryObserver::class);
         CategoryTranslation::observe(CategoryTranslationObserver::class);

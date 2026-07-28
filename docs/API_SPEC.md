@@ -103,6 +103,7 @@ Rules:
 | forgot/reset password | 3 requests/hour per IP + identifier |
 | verify-phone | 10 requests/minute per user |
 | resend-phone-code | 3 requests/hour per user |
+| favourites (POST/DELETE/GET) | 60 requests/minute per user |
 
 Rate-limited responses use HTTP 429 with the unified error envelope.
 
@@ -420,7 +421,7 @@ Get nested location tree (country → city → district).
 
 # Listings
 
-**Phase 1E status:** Core listing CRUD, lifecycle actions, owner listing index, category attributes, and public browse/detail are implemented under `/api/v1`. **Phase 1F** implements listing image upload, reorder, and delete. Favourite, report, and admin moderation listing routes remain deferred.
+**Phase 1E status:** Core listing CRUD, lifecycle actions, owner listing index, category attributes, and public browse/detail are implemented under `/api/v1`. **Phase 1F** implements listing image upload, reorder, and delete. **Phase 1H** implements favourites (add/remove/list). Report and admin moderation listing routes remain deferred.
 
 GET
 
@@ -766,13 +767,15 @@ Report conversation
 
 # Favourites
 
-Favourites are managed via listing-scoped routes and the authenticated collection route.
+**Phase 1H status:** Implemented. See [PHASE_1H.md](./PHASE_1H.md).
+
+Favourites are managed via listing-scoped routes and the authenticated collection route. All endpoints require Bearer JWT and an active account (`auth:api`, `account.active`). Rate limit: **60 requests/minute per user** (`throttle:favorite`).
 
 GET
 
 /users/me/favorites
 
-My favourites
+My favourites (paginated `ListingCardResource` list). Query: `page`, `per_page` (default 20, max 100). Ordering: most recently favourited first (`created_at DESC`).
 
 ---
 
@@ -780,7 +783,7 @@ POST
 
 /listings/{id}/favorite
 
-Add favourite
+Add favourite. Returns **201 Created** with `{ favorite: { listing_id, created_at } }`. Duplicate favourite returns **409** with `favorite.already_exists`. Own listing returns **403** with `favorite.own_listing`. Non-public or missing listing returns **404** with `listing.not_found`.
 
 ---
 
@@ -788,7 +791,7 @@ DELETE
 
 /listings/{id}/favorite
 
-Remove favourite
+Remove favourite. Returns **200 OK** idempotently (including when no favourite exists). Decrements `favorites_count` at most once.
 
 ---
 

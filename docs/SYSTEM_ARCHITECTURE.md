@@ -571,6 +571,26 @@ Results
 
 ---
 
+# Favorites Flow (Phase 1H)
+
+Authenticated user
+
+↓
+
+Listing eligibility check (public visibility + not own listing)
+
+↓
+
+Database transaction (favourite row + atomic `favorites_count` update)
+
+↓
+
+Response
+
+List favourites reuses `PublicListingQueryBuilder` visibility rules and `ListingCardResource`. See [PHASE_1H.md](./PHASE_1H.md).
+
+---
+
 # Messaging Flow
 
 Buyer

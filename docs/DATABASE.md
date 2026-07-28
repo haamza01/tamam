@@ -660,19 +660,32 @@ Fields
 
 ## Favorites
 
-Stores saved ads.
+Stores saved ads (Phase 1H).
 
 Fields
 
-- id
-- user_id
-- listing_id
+- id (UUID, PK)
+- user_id (UUID, FK → users, **cascade on delete**)
+- listing_id (UUID, FK → listings, **cascade on delete**)
 - created_at
 - updated_at
 
 Unique
 
 - user_id + listing_id
+
+Indexes
+
+- unique `(user_id, listing_id)`
+- btree on `listing_id`
+
+Foreign-key behaviour
+
+- **User deleted:** favourite rows cascade-delete; application decrements `listing_statistics.favorites_count` before user removal where applicable, otherwise cascade removes rows when listing is also removed.
+- **Listing hard-deleted:** favourite rows cascade-delete with listing; `listing_statistics` row also cascade-deletes.
+- **Listing soft-deleted:** favourite rows retained; excluded from authenticated favourites list via public visibility rules.
+
+Migration: `2026_07_28_600001_create_favorites_table.php`
 
 ---
 

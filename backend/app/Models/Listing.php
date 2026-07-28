@@ -98,6 +98,12 @@ class Listing extends Model
         return $this->hasMany(ListingImage::class)->orderBy('sort_order');
     }
 
+    /** @return HasMany<Favorite, $this> */
+    public function favorites(): HasMany
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
     /** @return HasOne<ListingStatistic, $this> */
     public function statistics(): HasOne
     {

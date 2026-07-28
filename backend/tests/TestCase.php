@@ -90,6 +90,7 @@ abstract class TestCase extends BaseTestCase
             'search',
             'search-suggestions',
             'search-popular',
+            'favorite',
         ] as $limiter) {
             RateLimiter::clear($limiter);
         }

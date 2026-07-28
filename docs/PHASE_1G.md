@@ -187,7 +187,6 @@ PHPUnit requires PostgreSQL.
 - Meilisearch / Elasticsearch / pg_trgm
 - Saved searches / search history / suggestion caching
 - Frontend search UI
-- Phase 1H favorites
 
 ## Known limitations
 

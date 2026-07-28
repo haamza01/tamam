@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\ListingController;
 use App\Http\Controllers\Api\V1\ListingImageController;
 use App\Http\Controllers\Api\V1\LocationController;
@@ -80,10 +81,16 @@ Route::prefix('v1')->group(function (): void {
             Route::put('/{id}/images/reorder', [ListingImageController::class, 'reorder'])->whereUuid('id');
             Route::delete('/{id}/images/{imageId}', [ListingImageController::class, 'destroy'])->whereUuid('id')->whereUuid('imageId');
         });
+
+        Route::middleware(['auth:api', 'account.active', 'throttle:favorite'])->group(function (): void {
+            Route::post('/{id}/favorite', [FavoriteController::class, 'store'])->whereUuid('id');
+            Route::delete('/{id}/favorite', [FavoriteController::class, 'destroy'])->whereUuid('id');
+        });
     });
 
     Route::middleware(['auth:api', 'account.active'])->prefix('users/me')->group(function (): void {
         Route::get('/listings', [UserListingController::class, 'index']);
         Route::get('/listings/{id}/statistics', [UserListingController::class, 'statistics'])->whereUuid('id');
+        Route::middleware('throttle:favorite')->get('/favorites', [FavoriteController::class, 'index']);
     });
 });
