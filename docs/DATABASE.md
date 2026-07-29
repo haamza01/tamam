@@ -681,9 +681,11 @@ Indexes
 
 Foreign-key behaviour
 
-- **User deleted:** favourite rows cascade-delete; application decrements `listing_statistics.favorites_count` before user removal where applicable, otherwise cascade removes rows when listing is also removed.
-- **Listing hard-deleted:** favourite rows cascade-delete with listing; `listing_statistics` row also cascade-deletes.
-- **Listing soft-deleted:** favourite rows retained; excluded from authenticated favourites list via public visibility rules.
+- **Listing soft-deleted, expired, paused, archived, or unpublished:** favourite rows **persist** (FK still valid); excluded from `GET /users/me/favorites` via `PublicListingQueryBuilder::applyPublicVisibility()`.
+- **Listing hard-deleted:** favourite rows **cascade-delete** (`ON DELETE CASCADE` on `listing_id`); `listing_statistics` row also cascade-deletes.
+- **User hard-deleted:** favourite rows **cascade-delete** (`ON DELETE CASCADE` on `user_id`).
+
+Retained rows are not database orphans — they reference an existing listing. Only hard delete of the parent user or listing removes them via FK cascade.
 
 Migration: `2026_07_28_600001_create_favorites_table.php`
 

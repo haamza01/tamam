@@ -59,12 +59,13 @@ class FavoriteService
     public function remove(User $user, string $listingId): void
     {
         DB::transaction(function () use ($user, $listingId): void {
-            $deleted = Favorite::query()
+            $rowsDeleted = Favorite::query()
                 ->where('user_id', $user->id)
                 ->where('listing_id', $listingId)
                 ->delete();
 
-            if ($deleted > 0) {
+            // Unique (user_id, listing_id) guarantees at most one row; decrement only when one was removed.
+            if ($rowsDeleted === 1) {
                 $this->statisticsCounter->decrementFavorites($listingId);
             }
         });

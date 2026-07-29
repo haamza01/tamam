@@ -1,6 +1,6 @@
 # Phase 1H — Favorites
 
-**Status:** Completed  
+**Status:** Completed (hardened review)  
 **Branch:** `phase/1h-favorites`  
 **Depends on:** Phase 1E (listing lifecycle), Phase 1F (listing images), Phase 1G (public listing visibility)
 
@@ -84,6 +84,28 @@ Non-eligible listings return **404** `listing.not_found` — same anti-enumerati
 | DELETE when favourite missing | **200** idempotent; count unchanged |
 | Concurrent duplicate DELETE | **200**; count decremented at most once (`GREATEST(0, …)`) |
 
+## DELETE execution flow
+
+`FavoriteController::destroy()` → `FavoriteService::remove()`:
+
+1. Open database transaction.
+2. `DELETE FROM favorites WHERE user_id = ? AND listing_id = ?` — capture `$rowsDeleted`.
+3. If `$rowsDeleted === 0`: commit transaction, return **200** (no statistics update).
+4. If `$rowsDeleted === 1`: atomic `GREATEST(0, favorites_count - 1)`, commit transaction, return **200**.
+5. Unique `(user_id, listing_id)` ensures `$rowsDeleted` is never greater than 1.
+
+DELETE does **not** re-check public listing visibility. It removes the authenticated user's favourite row by primary lookup only, so users can unfavourite even when the listing is later expired, paused, or soft-deleted.
+
+## Public visibility reuse
+
+Favorites does **not** define its own visibility rules. All public eligibility flows through `PublicListingQueryBuilder::applyPublicVisibility()`:
+
+| Operation | Call site | Method |
+|-----------|-----------|--------|
+| **Add** | `FavoriteService::isPubliclyFavoritable()` | `$this->publicListingQuery->base()` → `applyPublicVisibility(Listing::query())` |
+| **List** | `FavoriteService::paginateForUser()` | `whereHas('listing', fn ($q) => $this->publicListingQuery->applyPublicVisibility($q))` |
+| **Remove** | — | No visibility gate (row lookup by `user_id` + `listing_id` only) |
+
 ## Statistics update strategy
 
 `ListingStatisticsCounter` uses atomic SQL:
@@ -94,7 +116,19 @@ Non-eligible listings return **404** `listing.not_found` — same anti-enumerati
 
 Favourite mutation and count update run in a single database transaction.
 
-**Semantics:** `favorites_count` reflects persisted favourite rows, including favourites on listings that later become unavailable. Unavailable listings are hidden from the user's favourites list but rows are not auto-deleted.
+**Semantics:** `favorites_count` reflects persisted favourite rows, including favourites on listings that later become unavailable. Unavailable listings are hidden from the user's favourites list but rows are not auto-deleted by application logic.
+
+## Retained vs cascade-deleted favourite rows
+
+These rows are **not** orphaned in the database sense — foreign keys remain valid while the parent listing row exists.
+
+| Listing state | Favourite row | Visible in list | Removed by |
+|---------------|---------------|-----------------|------------|
+| Published and publicly visible | Present | Yes | User DELETE |
+| Expired, paused, archived, or unpublished | **Retained** | No | User DELETE, or FK cascade on hard delete |
+| Soft-deleted (`deleted_at` set) | **Retained** | No | User DELETE, or FK cascade on hard delete |
+| Hard-deleted (row removed from `listings`) | **Cascade-deleted** | No | PostgreSQL FK `ON DELETE CASCADE` |
+| User hard-deleted | **Cascade-deleted** | No | PostgreSQL FK `ON DELETE CASCADE` |
 
 ## Expiry and soft-delete behaviour
 
@@ -161,7 +195,7 @@ Not implemented — favourites are not listed as auditable events in the approve
 
 ## Tests
 
-`tests/Feature/Favorite/` — migration schema, auth rejection, eligibility rules, duplicate/idempotent behaviour, statistics consistency, list ordering/pagination, visibility exclusions, N+1 guard, concurrency via unique constraint.
+`tests/Feature/Favorite/` — migration schema, auth rejection, eligibility rules, duplicate/idempotent behaviour, DELETE counter hardening, statistics consistency, list ordering/pagination, visibility exclusions, N+1 guard, concurrency via unique constraint.
 
 PHPUnit requires PostgreSQL.
 
@@ -176,6 +210,6 @@ PHPUnit requires PostgreSQL.
 
 ## Known limitations
 
-- Orphan favourite rows remain when listings become unavailable (by design — rows cleaned on listing/user hard delete)
+- Retained favourite rows (valid FK, listing still exists but no longer publicly visible) remain until user DELETE or parent hard delete cascade
 - `favorites_count` may exceed visible favourites count for listings that later expire or are paused
 - No reconciliation artisan command (not documented)
